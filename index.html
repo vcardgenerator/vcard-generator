@@ -451,7 +451,41 @@
   <!-- Action bar -->
   <div class="action-bar">
     <button class="btn btn-accent" onclick="addEntry()">＋ &nbsp;Add Button</button>
+    <button class="btn btn-ghost"  onclick="openLoadModal()">📂 &nbsp;Load .vcf</button>
     <button class="btn btn-success" onclick="downloadVCF()">⬇ &nbsp;Download .vcf</button>
+  </div>
+
+  <!-- Load modal -->
+  <div id="load-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px; width:100%; max-width:540px; margin:20px; display:flex; flex-direction:column; gap:16px;">
+      <div style="font-weight:700; font-size:1rem;">Load vCard</div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label>Upload a .vcf file</label>
+        <div class="upload-area" id="vcf-drop" style="min-height:64px;">
+          <input type="file" accept=".vcf,text/vcard" onchange="loadFromFile(this.files[0])"
+            ondragover="event.preventDefault(); this.parentElement.classList.add('drag-over')"
+            ondragleave="this.parentElement.classList.remove('drag-over')"
+            ondrop="this.parentElement.classList.remove('drag-over')" />
+          <div class="upload-hint"><b>Click or drag</b> a .vcf file here</div>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; color:var(--muted); font-size:0.8rem;">
+        <div style="flex:1; height:1px; background:var(--border);"></div> or <div style="flex:1; height:1px; background:var(--border);"></div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label>Paste raw vCard text</label>
+        <textarea id="vcf-paste" rows="7" placeholder="BEGIN:VCARD&#10;VERSION:3.0&#10;..."
+          style="background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-family:'Cascadia Code','Consolas',monospace; font-size:0.75rem; padding:10px 12px; outline:none; resize:vertical; width:100%;"></textarea>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeLoadModal()">Cancel</button>
+        <button class="btn btn-accent" onclick="loadFromPaste()">Load</button>
+      </div>
+    </div>
   </div>
 
   <div class="divider"></div>
@@ -476,6 +510,7 @@
     const id = idCounter++;
     entries.push({ id, title: "Button Title", subtitle: "Short description", imageB64: null, imageName: null, imagePreview: null, imageSize: 0 });
     renderList();
+    refreshPreview();
     setTimeout(() => {
       const body = document.getElementById(`body-${id}`);
       if (body) { body.classList.add("open"); setChevron(id, true); }
@@ -670,6 +705,77 @@
     if (n < 1024) return n + " B";
     if (n < 1048576) return (n/1024).toFixed(1) + " KB";
     return (n/1048576).toFixed(2) + " MB";
+  }
+
+  /* ── Load modal ── */
+  function openLoadModal() {
+    const m = document.getElementById("load-modal");
+    m.style.display = "flex";
+    document.getElementById("vcf-paste").value = "";
+  }
+
+  function closeLoadModal() {
+    document.getElementById("load-modal").style.display = "none";
+  }
+
+  function loadFromFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { parseAndLoad(ev.target.result); };
+    reader.readAsText(file);
+  }
+
+  function loadFromPaste() {
+    const text = document.getElementById("vcf-paste").value.trim();
+    if (!text) { toast("Paste some vCard text first"); return; }
+    parseAndLoad(text);
+  }
+
+  function parseAndLoad(text) {
+    // unfold folded lines (lines starting with space/tab continue previous)
+    const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
+    const blocks = unfolded.split(/BEGIN:VCARD/i).slice(1);
+    if (!blocks.length) { toast("No valid vCard found"); return; }
+
+    let loaded = 0;
+    blocks.forEach(block => {
+      const lines = block.split(/\r?\n/);
+      let title = "", subtitle = "", imageB64 = null;
+
+      lines.forEach(line => {
+        const lc = line.toLowerCase();
+        if (lc.startsWith("n;") || lc.startsWith("n:")) {
+          // N;CHARSET=utf-8:Title;;;; — value is after the first colon
+          const val = line.split(":").slice(1).join(":").split(";")[0].trim();
+          if (val) title = val;
+        } else if (lc.startsWith("fn:")) {
+          // fallback: use FN if N wasn't set
+          if (!title) title = line.split(":").slice(1).join(":").trim();
+        } else if (lc.startsWith("org:")) {
+          subtitle = line.split(":").slice(1).join(":").replace(/;$/, "").trim();
+        } else if (lc.startsWith("photo;encoding=b:") || lc.startsWith("photo;encoding=b;") ) {
+          imageB64 = line.split(":").slice(1).join(":").trim();
+        }
+      });
+
+      const id = idCounter++;
+      const entry = { id, title: title || "Button Title", subtitle: subtitle || "", imageB64: null, imageName: null, imagePreview: null, imageSize: 0 };
+
+      if (imageB64) {
+        entry.imageB64     = imageB64;
+        entry.imageName    = "loaded-image.png";
+        entry.imagePreview = "data:image/png;base64," + imageB64;
+        entry.imageSize    = Math.round(imageB64.length * 0.75);
+      }
+
+      entries.push(entry);
+      loaded++;
+    });
+
+    renderList();
+    refreshPreview();
+    closeLoadModal();
+    toast(`Loaded ${loaded} button${loaded !== 1 ? "s" : ""} ✓`);
   }
 
   function copyOutput() {
