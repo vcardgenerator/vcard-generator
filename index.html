@@ -289,6 +289,19 @@
 
     .btn-remove-img:hover { background: rgba(247, 90, 90, 0.25); }
 
+    .btn-change-img {
+      background: rgba(124, 106, 247, 0.12);
+      border: 1px solid rgba(124, 106, 247, 0.25);
+      color: var(--accent);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      transition: background 0.15s;
+    }
+
+    .btn-change-img:hover { background: rgba(124, 106, 247, 0.25); }
+
     /* ── Action bar ── */
     .action-bar {
       display: flex;
@@ -648,24 +661,31 @@
     const area = document.getElementById(`ua-${id}`);
     if (!area || !e) return;
 
-    const fileInput = `<input type="file" accept="image/*"
-      onchange="handleImage(${id}, this.files[0])"
-      ondragover="event.preventDefault(); this.parentElement.classList.add('drag-over')"
-      ondragleave="this.parentElement.classList.remove('drag-over')"
-      ondrop="this.parentElement.classList.remove('drag-over')" />`;
-
     if (e.imageB64) {
-      area.innerHTML = `${fileInput}
-        <div class="img-preview-row">
+      // No full-area file input overlay when image is present — buttons must be clickable
+      area.innerHTML = `
+        <div class="img-preview-row" style="width:100%;">
           <img src="${e.imagePreview}" alt="" />
           <div class="img-info">
-            <div class="img-name">${esc(e.imageName)}</div>
-            <div class="img-meta">${fmtBytes(e.imageSize)} &nbsp;·&nbsp; Base64: ${fmtBytes(e.imageB64.length)}</div>
+            <div class="img-name">${esc(e.imageName || "Unknown")}</div>
+            <div class="img-meta">Base64: ${fmtBytes(e.imageB64.length)}</div>
           </div>
-          <button class="btn-remove-img" onclick="event.stopPropagation(); removeImage(${id})">Remove</button>
+          <div style="display:flex; gap:8px; flex-shrink:0;">
+            <label class="btn-change-img" title="Change image" style="cursor:pointer;">
+              Change
+              <input type="file" accept="image/*" style="display:none;"
+                onchange="handleImage(${id}, this.files[0])" />
+            </label>
+            <button class="btn-remove-img" onclick="removeImage(${id})">Remove</button>
+          </div>
         </div>`;
     } else {
-      area.innerHTML = `${fileInput}
+      area.innerHTML = `
+        <input type="file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"
+          onchange="handleImage(${id}, this.files[0])"
+          ondragover="event.preventDefault(); this.parentElement.classList.add('drag-over')"
+          ondragleave="this.parentElement.classList.remove('drag-over')"
+          ondrop="this.parentElement.classList.remove('drag-over')" />
         <div class="upload-hint"><b>Click or drag</b> an image here<br><span style="font-size:0.73rem">PNG · JPG · GIF · WebP</span></div>`;
     }
   }
