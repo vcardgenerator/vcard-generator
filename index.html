@@ -167,6 +167,26 @@
       flex-shrink: 0;
     }
 
+    .drag-handle {
+      cursor: grab;
+      color: var(--border);
+      font-size: 1rem;
+      flex-shrink: 0;
+      padding: 0 2px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+
+    .entry-header:hover .drag-handle { color: var(--muted); }
+    .drag-handle:active { cursor: grabbing; }
+
+    .vcard-entry.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .vcard-entry.dragging { opacity: 0.4; }
+
     /* entry body */
     .entry-body {
       display: none;
@@ -621,8 +641,16 @@
     entries.forEach((entry, idx) => {
       const div = document.createElement("div");
       div.className = "vcard-entry";
+      div.draggable = true;
+      div.dataset.id = entry.id;
+      div.addEventListener("dragstart", e => onDragStart(e, entry.id));
+      div.addEventListener("dragover",  e => onDragOver(e, entry.id));
+      div.addEventListener("dragleave", e => onDragLeave(e));
+      div.addEventListener("drop",      e => onDrop(e, entry.id));
+      div.addEventListener("dragend",   () => onDragEnd());
       div.innerHTML = `
         <div class="entry-header" onclick="toggleEntry(${entry.id})">
+          <span class="drag-handle" onmousedown="event.stopPropagation()" title="Drag to reorder">⠿</span>
           <span class="entry-index">#${idx + 1}</span>
           <span class="entry-title-preview" id="tp-${entry.id}">${esc(entry.title || "Untitled")}</span>
           <span class="entry-sub-preview"   id="sp-${entry.id}">${esc(entry.subtitle || "")}</span>
@@ -690,13 +718,57 @@
     }
   }
 
+  /* ── Drag to reorder ── */
+  let dragSrcId = null;
+
+  function onDragStart(e, id) {
+    dragSrcId = id;
+    e.dataTransfer.effectAllowed = "move";
+    setTimeout(() => {
+      const el = document.querySelector(`.vcard-entry[data-id="${id}"]`);
+      if (el) el.classList.add("dragging");
+    }, 0);
+  }
+
+  function onDragOver(e, id) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (id === dragSrcId) return;
+    document.querySelectorAll(".vcard-entry").forEach(el => el.classList.remove("drag-over"));
+    const el = document.querySelector(`.vcard-entry[data-id="${id}"]`);
+    if (el) el.classList.add("drag-over");
+  }
+
+  function onDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget))
+      e.currentTarget.classList.remove("drag-over");
+  }
+
+  function onDrop(e, targetId) {
+    e.preventDefault();
+    if (dragSrcId === null || dragSrcId === targetId) return;
+    const fromIdx = entries.findIndex(e => e.id === dragSrcId);
+    const toIdx   = entries.findIndex(e => e.id === targetId);
+    const [moved] = entries.splice(fromIdx, 1);
+    entries.splice(toIdx, 0, moved);
+    renderList();
+    refreshPreview();
+  }
+
+  function onDragEnd() {
+    dragSrcId = null;
+    document.querySelectorAll(".vcard-entry").forEach(el => {
+      el.classList.remove("drag-over", "dragging");
+    });
+  }
+
   /* ── vCard ── */
   function buildVCF() {
     return entries.map(e => {
       let v = `BEGIN:VCARD\nVERSION:3.0\nN;CHARSET=utf-8:${e.title || "Untitled"};;;;\nORG:${e.subtitle || ""};\n`;
       if (e.imageB64) v += `PHOTO;ENCODING=b: ${e.imageB64}\n`;
       return v + `END:VCARD`;
-    }).join("\n ");
+    }).join("\n");
   }
 
   function downloadVCF() {
@@ -752,29 +824,35 @@
   }
 
   function parseAndLoad(text) {
-    // unfold folded lines (lines starting with space/tab continue previous)
-    const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
-    const blocks = unfolded.split(/BEGIN:VCARD/i).slice(1);
-    if (!blocks.length) { toast("No valid vCard found"); return; }
+    // normalize line endings, then unfold continuation lines
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const unfolded   = normalized.replace(/\n[ \t]/g, "");
+
+    // match each complete BEGIN:VCARD...END:VCARD block
+    const blockRe = /BEGIN:VCARD([\s\S]*?)END:VCARD/gi;
+    const matches  = [...unfolded.matchAll(blockRe)];
+    if (!matches.length) { toast("No valid vCard found"); return; }
 
     let loaded = 0;
-    blocks.forEach(block => {
-      const lines = block.split(/\r?\n/);
+    matches.forEach(match => {
+      const lines = match[1].split("\n").filter(l => l.trim());
       let title = "", subtitle = "", imageB64 = null;
 
       lines.forEach(line => {
-        const lc = line.toLowerCase();
-        if (lc.startsWith("n;") || lc.startsWith("n:")) {
-          // N;CHARSET=utf-8:Title;;;; — value is after the first colon
-          const val = line.split(":").slice(1).join(":").split(";")[0].trim();
-          if (val) title = val;
-        } else if (lc.startsWith("fn:")) {
-          // fallback: use FN if N wasn't set
-          if (!title) title = line.split(":").slice(1).join(":").trim();
-        } else if (lc.startsWith("org:")) {
-          subtitle = line.split(":").slice(1).join(":").replace(/;$/, "").trim();
-        } else if (lc.startsWith("photo;encoding=b:") || lc.startsWith("photo;encoding=b;") ) {
-          imageB64 = line.split(":").slice(1).join(":").trim();
+        const colon = line.indexOf(":");
+        if (colon === -1) return;
+        const key = line.slice(0, colon).toLowerCase();
+        const val = line.slice(colon + 1);
+
+        if (key === "n" || key.startsWith("n;")) {
+          const name = val.split(";")[0].trim();
+          if (name) title = name;
+        } else if (key === "fn" && !title) {
+          title = val.trim();
+        } else if (key === "org") {
+          subtitle = val.replace(/;+$/, "").trim();
+        } else if (/^photo.*encoding=b/i.test(key) || key.startsWith("photo;encoding=b")) {
+          imageB64 = val.trim();
         }
       });
 
@@ -783,7 +861,7 @@
 
       if (imageB64) {
         entry.imageB64     = imageB64;
-        entry.imageName    = "loaded-image.png";
+        entry.imageName    = "Unknown";
         entry.imagePreview = "data:image/png;base64," + imageB64;
         entry.imageSize    = Math.round(imageB64.length * 0.75);
       }
