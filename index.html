@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vCard Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0F0F13;
+      --surface:      #1A1A24;
+      --sidebar:      #13131A;
+      --border:       #2A2A38;
+      --accent:       #7C6AF7;
+      --accent2:      #A978F5;
+      --success:      #34C98A;
+      --success2:     #2EBBCC;
+      --danger:       #F75A5A;
+      --danger2:      #F7906A;
+      --text:         #F0F0F8;
+      --muted:        #7A7A96;
+      --sky:          #87CEEB;
+      --input-bg:     #14141E;
+      --hover-item:   #1E1E2A;
+      --active-item:  #24243A;
+      --radius:       12px;
+      --radius-sm:    8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 80px;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .logo {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 1px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .logo .omega { color: var(--sky); }
+    .logo .rest  { color: var(--text); }
+
+    .logo-sub {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--muted);
+    }
+
+    /* ── Layout ── */
+    .container { width: 100%; max-width: 780px; }
+
+    /* ── Section label ── */
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* ── Card list ── */
+    #card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .vcard-entry {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .vcard-entry:focus-within { border-color: var(--accent); }
+
+    /* entry header */
+    .entry-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 16px;
+      background: #16161F;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .entry-header:hover { background: var(--hover-item); }
+
+    .entry-index {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 20px;
+    }
+
+    .entry-title-preview {
+      font-weight: 600;
+      font-size: 0.9rem;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .entry-sub-preview {
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+
+    .has-image-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--success), var(--success2));
+      flex-shrink: 0;
+      display: none;
+    }
+
+    .has-image-dot.visible { display: block; }
+
+    .header-btns { display: flex; gap: 4px; flex-shrink: 0; }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 5px 7px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      line-height: 1;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .btn-icon:hover          { color: var(--text); background: var(--border); }
+    .btn-icon.danger:hover   { color: var(--danger); }
+
+    .chevron {
+      font-size: 0.7rem;
+      color: var(--muted);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    /* entry body */
+    .entry-body {
+      display: none;
+      flex-direction: column;
+      gap: 18px;
+      padding: 20px 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    .entry-body.open { display: flex; }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-group.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+    }
+
+    input[type="text"] {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    /* image upload */
+    .upload-area {
+      position: relative;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius-sm);
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      padding: 14px 16px;
+      gap: 14px;
+    }
+
+    .upload-area:hover, .upload-area.drag-over {
+      border-color: var(--accent);
+      background: rgba(124, 106, 247, 0.06);
+    }
+
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-hint {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+      pointer-events: none;
+      line-height: 1.5;
+    }
+
+    .upload-hint b { color: var(--accent); }
+
+    .img-preview-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .img-preview-row img {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .img-info { flex: 1; }
+    .img-name { font-size: 0.85rem; font-weight: 600; }
+    .img-meta { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    .btn-remove-img {
+      pointer-events: all;
+      background: rgba(247, 90, 90, 0.12);
+      border: 1px solid rgba(247, 90, 90, 0.25);
+      color: var(--danger);
+      cursor: pointer;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      transition: background 0.15s;
+    }
+
+    .btn-remove-img:hover { background: rgba(247, 90, 90, 0.25); }
+
+    /* ── Action bar ── */
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn:active { transform: scale(0.96); }
+
+    .btn-accent {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+    }
+
+    .btn-accent:hover { opacity: 0.88; }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--success), var(--success2));
+      color: #0a1a10;
+    }
+
+    .btn-success:hover { opacity: 0.88; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--muted);
+    }
+
+    .btn-ghost:hover { background: var(--hover-item); color: var(--text); }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0 28px;
+    }
+
+    /* ── Preview panel ── */
+    #preview-section { display: block; }
+
+    #preview-output {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #9b8ff8;
+      max-height: 320px;
+      overflow-y: auto;
+      line-height: 1.65;
+      margin-bottom: 32px;
+    }
+
+    #preview-output .vc-key   { color: var(--muted); }
+    #preview-output .vc-val   { color: var(--text); }
+    #preview-output .vc-mark  { color: var(--accent); }
+
+    /* ── Empty state ── */
+    #empty-state {
+      text-align: center;
+      padding: 52px 20px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    #empty-state.visible { display: block; }
+
+    .empty-icon {
+      font-size: 2.8rem;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    .empty-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(72px);
+      background: linear-gradient(135deg, var(--success), var(--success2));
+      color: #061410;
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 11px 22px;
+      border-radius: 100px;
+      transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <span class="omega">vCard</span><span class="rest"> Generator</span>
+  </div>
+  <div class="logo-sub">Apple Shortcuts · vCard Generator</div>
+</div>
+
+<div class="container">
+
+  <!-- Card list -->
+  <div class="section-title">Buttons</div>
+  <div id="card-list"></div>
+  <div id="empty-state">
+    <div class="empty-icon">📇</div>
+    <div class="empty-text">No buttons yet — add one below</div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <button class="btn btn-accent" onclick="addEntry()">＋ &nbsp;Add Button</button>
+    <button class="btn btn-success" onclick="downloadVCF()">⬇ &nbsp;Download .vcf</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Always-visible output -->
+  <div id="preview-section">
+    <div class="section-title">Raw vCard Output</div>
+    <pre id="preview-output"></pre>
+  </div>
+
+</div>
+
+<div id="toast">Downloaded!</div>
+
+<script>
+  let entries = [];
+  let idCounter = 0;
+
+  function addEntry() {
+    const id = idCounter++;
+    entries.push({ id, title: "Button Title", subtitle: "Short description", imageB64: null, imageName: null, imagePreview: null, imageSize: 0 });
+    renderList();
+    setTimeout(() => {
+      const body = document.getElementById(`body-${id}`);
+      if (body) { body.classList.add("open"); setChevron(id, true); }
+    }, 10);
+  }
+
+  function removeEntry(id) {
+    entries = entries.filter(e => e.id !== id);
+    renderList();
+    refreshPreview();
+  }
+
+  function dupeEntry(id) {
+    const src = entries.find(e => e.id === id);
+    if (!src) return;
+    const newId = idCounter++;
+    entries.push({ ...src, id: newId, title: src.title + " Copy" });
+    renderList();
+    refreshPreview();
+  }
+
+  function updateField(id, field, value) {
+    const e = entries.find(e => e.id === id);
+    if (!e) return;
+    e[field] = value;
+    if (field === "title") {
+      const el = document.getElementById(`tp-${id}`);
+      if (el) el.textContent = value || "Untitled";
+    }
+    if (field === "subtitle") {
+      const el = document.getElementById(`sp-${id}`);
+      if (el) el.textContent = value;
+    }
+    refreshPreview();
+  }
+
+  function handleImage(id, file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const e = entries.find(e => e.id === id);
+      if (!e) return;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 123; canvas.height = 123;
+        canvas.getContext("2d").drawImage(img, 0, 0, 123, 123);
+        const resizedDataUrl = canvas.toDataURL("image/png");
+        e.imageB64     = resizedDataUrl.split(",")[1];
+        e.imageName    = file.name;
+        e.imagePreview = resizedDataUrl;
+        e.imageSize    = file.size;
+        renderUploadArea(id);
+        updateDot(id);
+        refreshPreview();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeImage(id) {
+    const e = entries.find(e => e.id === id);
+    if (!e) return;
+    e.imageB64 = null; e.imageName = null; e.imagePreview = null; e.imageSize = 0;
+    renderUploadArea(id);
+    updateDot(id);
+    refreshPreview();
+  }
+
+  function updateDot(id) {
+    const e = entries.find(en => en.id === id);
+    const dot = document.getElementById(`dot-${id}`);
+    if (dot) dot.classList.toggle("visible", !!(e && e.imageB64));
+  }
+
+  function toggleEntry(id) {
+    const body = document.getElementById(`body-${id}`);
+    if (!body) return;
+    const open = body.classList.toggle("open");
+    setChevron(id, open);
+  }
+
+  function setChevron(id, open) {
+    const c = document.getElementById(`chev-${id}`);
+    if (c) c.style.transform = open ? "rotate(90deg)" : "";
+  }
+
+  function renderList() {
+    const list  = document.getElementById("card-list");
+    const empty = document.getElementById("empty-state");
+    empty.classList.toggle("visible", entries.length === 0);
+    list.innerHTML = "";
+
+    entries.forEach((entry, idx) => {
+      const div = document.createElement("div");
+      div.className = "vcard-entry";
+      div.innerHTML = `
+        <div class="entry-header" onclick="toggleEntry(${entry.id})">
+          <span class="entry-index">#${idx + 1}</span>
+          <span class="entry-title-preview" id="tp-${entry.id}">${esc(entry.title || "Untitled")}</span>
+          <span class="entry-sub-preview"   id="sp-${entry.id}">${esc(entry.subtitle || "")}</span>
+          <span class="has-image-dot ${entry.imageB64 ? 'visible' : ''}" id="dot-${entry.id}" title="Has image"></span>
+          <div class="header-btns">
+            <button class="btn-icon" title="Duplicate" onclick="event.stopPropagation(); dupeEntry(${entry.id})">⧉</button>
+            <button class="btn-icon danger" title="Delete" onclick="event.stopPropagation(); removeEntry(${entry.id})">✕</button>
+          </div>
+          <span class="chevron" id="chev-${entry.id}">›</span>
+        </div>
+        <div class="entry-body" id="body-${entry.id}">
+          <div class="field-row">
+            <div class="field-group">
+              <label>Title</label>
+              <input type="text" value="${escAttr(entry.title)}" placeholder="Button Title"
+                oninput="updateField(${entry.id}, 'title', this.value)" />
+            </div>
+            <div class="field-group">
+              <label>Subtitle</label>
+              <input type="text" value="${escAttr(entry.subtitle)}" placeholder="Short description"
+                oninput="updateField(${entry.id}, 'subtitle', this.value)" />
+            </div>
+          </div>
+          <div class="field-group full">
+            <label>Icon Image (optional)</label>
+            <div class="upload-area" id="ua-${entry.id}"></div>
+          </div>
+        </div>`;
+      list.appendChild(div);
+      renderUploadArea(entry.id);
+    });
+  }
+
+  function renderUploadArea(id) {
+    const e    = entries.find(e => e.id === id);
+    const area = document.getElementById(`ua-${id}`);
+    if (!area || !e) return;
+
+    const fileInput = `<input type="file" accept="image/*"
+      onchange="handleImage(${id}, this.files[0])"
+      ondragover="event.preventDefault(); this.parentElement.classList.add('drag-over')"
+      ondragleave="this.parentElement.classList.remove('drag-over')"
+      ondrop="this.parentElement.classList.remove('drag-over')" />`;
+
+    if (e.imageB64) {
+      area.innerHTML = `${fileInput}
+        <div class="img-preview-row">
+          <img src="${e.imagePreview}" alt="" />
+          <div class="img-info">
+            <div class="img-name">${esc(e.imageName)}</div>
+            <div class="img-meta">${fmtBytes(e.imageSize)} &nbsp;·&nbsp; Base64: ${fmtBytes(e.imageB64.length)}</div>
+          </div>
+          <button class="btn-remove-img" onclick="event.stopPropagation(); removeImage(${id})">Remove</button>
+        </div>`;
+    } else {
+      area.innerHTML = `${fileInput}
+        <div class="upload-hint"><b>Click or drag</b> an image here<br><span style="font-size:0.73rem">PNG · JPG · GIF · WebP</span></div>`;
+    }
+  }
+
+  /* ── vCard ── */
+  function buildVCF() {
+    return entries.map(e => {
+      let v = `BEGIN:VCARD\nVERSION:3.0\nN;CHARSET=utf-8:${e.title || "Untitled"};;;;\nORG:${e.subtitle || ""};\n`;
+      if (e.imageB64) v += `PHOTO;ENCODING=b: ${e.imageB64}\n`;
+      return v + `END:VCARD`;
+    }).join("\n ");
+  }
+
+  function downloadVCF() {
+    if (!entries.length) { toast("Add at least one button first"); return; }
+    const blob = new Blob([buildVCF()], { type: "text/vcard;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement("a"), { href: url, download: "shortcuts.vcf" });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast("Downloaded shortcuts.vcf ✓");
+  }
+
+  function refreshPreview() {
+    const out = document.getElementById("preview-output");
+    out.textContent = entries.length ? buildVCF() : "";
+  }
+
+  /* ── Helpers ── */
+  function esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function escAttr(s) { return String(s).replace(/"/g,"&quot;"); }
+  function fmtBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n/1024).toFixed(1) + " KB";
+    return (n/1048576).toFixed(2) + " MB";
+  }
+
+  let _toastTimer;
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => t.classList.remove("show"), 2400);
+  }
+
+  renderList();
+  refreshPreview();
+</script>
+</body>
+</html>
