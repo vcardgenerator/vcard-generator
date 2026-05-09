@@ -346,6 +346,17 @@
     /* ── Preview panel ── */
     #preview-section { display: block; }
 
+    .output-header {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
+
+    .btn-copy {
+      font-size: 0.78rem;
+      padding: 6px 14px;
+    }
+
     #preview-output {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -447,7 +458,9 @@
 
   <!-- Always-visible output -->
   <div id="preview-section">
-    <div class="section-title">Raw vCard Output</div>
+    <div class="output-header">
+      <button class="btn btn-ghost btn-copy" id="copy-btn" onclick="copyOutput()">Copy</button>
+    </div>
     <pre id="preview-output"></pre>
   </div>
 
@@ -657,6 +670,16 @@
     if (n < 1024) return n + " B";
     if (n < 1048576) return (n/1024).toFixed(1) + " KB";
     return (n/1048576).toFixed(2) + " MB";
+  }
+
+  function copyOutput() {
+    const text = document.getElementById("preview-output").textContent;
+    if (!text) { toast("Nothing to copy"); return; }
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById("copy-btn");
+      btn.textContent = "Copied!";
+      setTimeout(() => btn.textContent = "Copy", 1800);
+    });
   }
 
   let _toastTimer;
