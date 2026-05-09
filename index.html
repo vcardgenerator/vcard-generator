@@ -451,7 +451,7 @@
   <!-- Action bar -->
   <div class="action-bar">
     <button class="btn btn-accent" onclick="addEntry()">＋ &nbsp;Add Button</button>
-    <button class="btn btn-ghost"  onclick="openLoadModal()">📂 &nbsp;Load .vcf</button>
+    <button class="btn btn-ghost"  onclick="openLoadModal()">📂 &nbsp;Load</button>
     <button class="btn btn-success" onclick="downloadVCF()">⬇ &nbsp;Download .vcf</button>
   </div>
 
@@ -776,6 +776,12 @@
     refreshPreview();
     closeLoadModal();
     toast(`Loaded ${loaded} button${loaded !== 1 ? "s" : ""} ✓`);
+    setTimeout(() => {
+      entries.forEach(e => {
+        const body = document.getElementById(`body-${e.id}`);
+        if (body) { body.classList.add("open"); setChevron(e.id, true); }
+      });
+    }, 10);
   }
 
   function copyOutput() {
