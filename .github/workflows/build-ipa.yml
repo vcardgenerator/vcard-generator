@@ -1,0 +1,74 @@
+name: Build Unsigned IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/build-ipa.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Select latest available Xcode ─────────────────────────────────────
+      - name: Select Xcode
+        run: |
+          # Pick the highest-versioned Xcode available on the runner
+          XCODE_PATH=$(ls /Applications | grep -E '^Xcode' | sort -V | tail -1)
+          echo "Using: $XCODE_PATH"
+          sudo xcode-select -s "/Applications/$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          swift --version
+
+      # ── 3. Install XcodeGen ───────────────────────────────────────────────────
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # ── 4. Generate .xcodeproj ────────────────────────────────────────────────
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate --spec project.yml
+
+      # ── 5. Archive (unsigned) ─────────────────────────────────────────────────
+      - name: Archive
+        working-directory: ios
+        run: |
+          xcodebuild archive \
+            -project VCardGenerator.xcodeproj \
+            -scheme VCardGenerator \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/VCardGenerator.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE="" \
+            ONLY_ACTIVE_ARCH=NO
+
+      # ── 6. Repack .app → .ipa ─────────────────────────────────────────────────
+      - name: Repack to IPA
+        run: |
+          APP_PATH=$(find "$RUNNER_TEMP/VCardGenerator.xcarchive/Products" \
+            -name "*.app" -maxdepth 3 | head -1)
+          echo "Found app: $APP_PATH"
+
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -r "$APP_PATH" "$RUNNER_TEMP/Payload/"
+
+          cd "$RUNNER_TEMP"
+          zip -r VCardGenerator-unsigned.ipa Payload/
+          echo "IPA size: $(du -sh VCardGenerator-unsigned.ipa | cut -f1)"
+
+      # ── 7. Upload artifact ────────────────────────────────────────────────────
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VCardGenerator-unsigned-${{ github.sha }}
+          path: ${{ runner.temp }}/VCardGenerator-unsigned.ipa
+          retention-days: 30
