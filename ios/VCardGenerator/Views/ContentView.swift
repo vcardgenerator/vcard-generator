@@ -7,7 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            Tab("Buttons", systemImage: "rectangle.3.group") {
+            Tab("Buttons", systemImage: "contextmenu.and.selection") {
                 BuilderTab(store: store)
             }
             Tab("Output", systemImage: "doc.text") {
@@ -65,6 +65,15 @@ struct BuilderTab: View {
                                 insertion: .scale(scale: 0.88, anchor: .top).combined(with: .opacity),
                                 removal:   .scale(scale: 0.88).combined(with: .opacity)
                             ))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        store.removeEntry(entry)
+                                    }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                         }
                         .onMove  { store.moveEntries(from: $0, to: $1) }
                         .onDelete { offsets in
@@ -143,7 +152,7 @@ struct BuilderTab: View {
     // ── Empty state ───────────────────────────────────────────────────────────
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "rectangle.3.group")
+            Image(systemName: "contextmenu.and.selection")
                 .font(.system(size: 48, weight: .ultraLight))
                 .foregroundStyle(.secondary)
                 .symbolEffect(.pulse)
