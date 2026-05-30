@@ -165,7 +165,7 @@ struct EntryRowView: View {
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .glassEffect(in: RoundedRectangle(cornerRadius: 8))
+                            .glassEffect(in: Capsule())
                     }
 
                     // Remove
@@ -179,7 +179,7 @@ struct EntryRowView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                     }
-                    .buttonStyle(GlassButtonStyle(cornerRadius: 8))
+                    .buttonStyle(GlassButtonStyle())
                     .tint(.red)
                 }
             }
@@ -198,7 +198,7 @@ struct EntryRowView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 22)
-                .glassEffect(in: RoundedRectangle(cornerRadius: 12))
+                .glassEffect(in: Capsule())
             }
             .transition(.opacity)
         }

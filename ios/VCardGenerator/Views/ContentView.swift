@@ -3,11 +3,9 @@ import SwiftUI
 // MARK: - Shared glass button style (used across all views)
 
 struct GlassButtonStyle: ButtonStyle {
-    var cornerRadius: CGFloat = 12
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .glassEffect(in: RoundedRectangle(cornerRadius: cornerRadius))
+            .glassEffect(in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .opacity(configuration.isPressed ? 0.85 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.65), value: configuration.isPressed)

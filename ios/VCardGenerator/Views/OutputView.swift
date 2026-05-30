@@ -35,7 +35,7 @@ struct OutputView: View {
                     .padding(.vertical, 6)
                     .contentTransition(.symbolEffect(.replace))
                 }
-                .buttonStyle(GlassButtonStyle(cornerRadius: 8))
+                .buttonStyle(GlassButtonStyle())
                 .tint(copied ? .green : .primary)
                 .animation(.spring(response: 0.25, dampingFraction: 0.75), value: copied)
             }
