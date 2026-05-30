@@ -13,6 +13,9 @@ struct ContentView: View {
             Tab("Output", systemImage: "doc.text") {
                 OutputTab(store: store)
             }
+            Tab("Guide", systemImage: "questionmark.circle") {
+                GuideTab()
+            }
         }
     }
 }
