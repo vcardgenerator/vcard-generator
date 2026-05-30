@@ -7,7 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            Tab("Cards", systemImage: "person.crop.rectangle.stack") {
+            Tab("Buttons", systemImage: "rectangle.3.group") {
                 BuilderTab(store: store)
             }
             Tab("Output", systemImage: "doc.text") {
@@ -90,10 +90,15 @@ struct BuilderTab: View {
                                 expandedIDs.insert(entry.id)
                             }
                         } label: {
-                            Label("Add Button", systemImage: "plus")
-                                .font(.subheadline.weight(.bold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                            Label {
+                                Text("Add Button")
+                                    .font(.subheadline.weight(.bold))
+                            } icon: {
+                                Image(systemName: "plus")
+                                    .foregroundStyle(.green)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
                         }
                         .glassEffect(in: Capsule())
                         .buttonStyle(.plain)
@@ -101,6 +106,14 @@ struct BuilderTab: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(.init(top: 4, leading: 16, bottom: 4, trailing: 16))
+
+                    Text("Your output will appear in the Output tab")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(.init(top: 2, leading: 16, bottom: 8, trailing: 16))
                 }
             }
             .listStyle(.plain)
@@ -130,7 +143,7 @@ struct BuilderTab: View {
     // ── Empty state ───────────────────────────────────────────────────────────
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "person.crop.rectangle.stack")
+            Image(systemName: "rectangle.3.group")
                 .font(.system(size: 48, weight: .ultraLight))
                 .foregroundStyle(.secondary)
                 .symbolEffect(.pulse)
@@ -158,8 +171,7 @@ struct BuilderTab: View {
 struct OutputTab: View {
     var store: VCardStore
 
-    @State private var showShare = false
-    @State private var shareURL: URL? = nil
+    @State private var vcfURL: URL? = nil
 
     var body: some View {
         NavigationStack {
@@ -168,17 +180,28 @@ struct OutputTab: View {
                     OutputView(text: store.vcfText, onCopy: copyVCF)
 
                     GlassEffectContainer {
-                        Button(action: exportVCF) {
-                            Label("Download .vcf", systemImage: "arrow.down.circle")
-                                .font(.subheadline.weight(.bold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                        if let url = vcfURL {
+                            ShareLink(item: url) {
+                                Label("Download .vcf", systemImage: "arrow.down.circle")
+                                    .font(.subheadline.weight(.bold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                            }
+                            .glassEffect(in: Capsule())
+                            .buttonStyle(.plain)
+                            .tint(.green)
+                        } else {
+                            Button(action: {}) {
+                                Label("Download .vcf", systemImage: "arrow.down.circle")
+                                    .font(.subheadline.weight(.bold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                            }
+                            .glassEffect(in: Capsule())
+                            .buttonStyle(.plain)
+                            .disabled(true)
+                            .opacity(0.4)
                         }
-                        .glassEffect(in: Capsule())
-                        .buttonStyle(.plain)
-                        .tint(.green)
-                        .disabled(store.entries.isEmpty)
-                        .opacity(store.entries.isEmpty ? 0.4 : 1)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -189,8 +212,11 @@ struct OutputTab: View {
             .navigationTitle("Output")
             .navigationBarTitleDisplayMode(.large)
         }
-        .sheet(isPresented: $showShare) {
-            if let url = shareURL { ActivityView(items: [url]) }
+        .onChange(of: store.vcfText) { _, text in
+            refreshVCFURL(text: text)
+        }
+        .onAppear {
+            refreshVCFURL(text: store.vcfText)
         }
     }
 
@@ -198,13 +224,15 @@ struct OutputTab: View {
         UIPasteboard.general.string = store.vcfText
     }
 
-    private func exportVCF() {
-        guard !store.entries.isEmpty else { return }
+    private func refreshVCFURL(text: String) {
+        guard !text.isEmpty, !store.entries.isEmpty else {
+            vcfURL = nil
+            return
+        }
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("shortcuts.vcf")
-        try? store.vcfText.write(to: url, atomically: true, encoding: .utf8)
-        shareURL = url
-        showShare = true
+        try? text.write(to: url, atomically: true, encoding: .utf8)
+        vcfURL = url
     }
 }
 
