@@ -7,7 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            Tab("Buttons", systemImage: "contextmenu.and.selection") {
+            Tab("Buttons", systemImage: "list.bullet.rectangle") {
                 BuilderTab(store: store)
             }
             Tab("Output", systemImage: "doc.text") {
@@ -155,7 +155,7 @@ struct BuilderTab: View {
     // ── Empty state ───────────────────────────────────────────────────────────
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "contextmenu.and.selection")
+            Image(systemName: "list.bullet.rectangle")
                 .font(.system(size: 48, weight: .ultraLight))
                 .foregroundStyle(.secondary)
                 .symbolEffect(.pulse)
