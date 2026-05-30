@@ -36,6 +36,7 @@ struct VCardService {
 
     // MARK: Parse
 
+    @MainActor
     static func parseVCF(_ text: String) -> [VCardEntry] {
         // Normalize line endings
         let normalized = text
@@ -61,6 +62,7 @@ struct VCardService {
         }
     }
 
+    @MainActor
     private static func parseBlock(_ block: String) -> VCardEntry? {
         let lines = block
             .components(separatedBy: "\n")

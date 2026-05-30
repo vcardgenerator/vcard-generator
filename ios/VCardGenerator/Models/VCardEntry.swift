@@ -4,7 +4,8 @@ import UIKit
 @MainActor
 @Observable
 final class VCardEntry: Identifiable {
-    var id       = UUID()
+    // `nonisolated let` so Identifiable.id is accessible from any context (Swift 6)
+    nonisolated let id: UUID
     var title    = "Button Title"
     var subtitle = "Short description"
     var image: UIImage? = nil
