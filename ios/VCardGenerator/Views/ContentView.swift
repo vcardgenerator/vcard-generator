@@ -1,13 +1,29 @@
 import SwiftUI
 
-// MARK: - ContentView
+// MARK: - Root (provides shared store to both tabs)
 
 struct ContentView: View {
-    @State private var store       = VCardStore()
+    @State private var store = VCardStore()
+
+    var body: some View {
+        TabView {
+            Tab("Cards", systemImage: "person.crop.rectangle.stack") {
+                BuilderTab(store: store)
+            }
+            Tab("Output", systemImage: "doc.text") {
+                OutputTab(store: store)
+            }
+        }
+    }
+}
+
+// MARK: - Builder Tab
+
+struct BuilderTab: View {
+    var store: VCardStore
+
     @State private var expandedIDs = Set<UUID>()
     @State private var showLoad    = false
-    @State private var showShare   = false
-    @State private var shareURL:   URL? = nil
 
     var body: some View {
         NavigationStack {
@@ -64,20 +80,27 @@ struct ContentView: View {
                         .textCase(nil)
                 }
 
-                // ── Action bar ────────────────────────────────────────────────
+                // ── Add Button ────────────────────────────────────────────────
                 Section {
-                    actionBar
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(.init(top: 4, leading: 16, bottom: 4, trailing: 16))
-                }
-
-                // ── Output ────────────────────────────────────────────────────
-                Section {
-                    OutputView(text: store.vcfText, onCopy: copyVCF)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(.init(top: 8, leading: 16, bottom: 40, trailing: 16))
+                    GlassEffectContainer {
+                        Button {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                let entry = VCardEntry()
+                                store.entries.append(entry)
+                                expandedIDs.insert(entry.id)
+                            }
+                        } label: {
+                            Label("Add Button", systemImage: "plus")
+                                .font(.subheadline.weight(.bold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                        }
+                        .glassEffect(in: Capsule())
+                        .buttonStyle(.plain)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(.init(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
             }
             .listStyle(.plain)
@@ -102,9 +125,6 @@ struct ContentView: View {
                 }
             }
         }
-        .sheet(isPresented: $showShare) {
-            if let url = shareURL { ActivityView(items: [url]) }
-        }
     }
 
     // ── Empty state ───────────────────────────────────────────────────────────
@@ -127,42 +147,51 @@ struct ContentView: View {
         .glassEffect(in: RoundedRectangle(cornerRadius: 20))
     }
 
-    // ── Action bar ────────────────────────────────────────────────────────────
-    private var actionBar: some View {
-        GlassEffectContainer {
-            HStack(spacing: 10) {
-                Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        let entry = VCardEntry()
-                        store.entries.append(entry)
-                        expandedIDs.insert(entry.id)
-                    }
-                } label: {
-                    Label("Add Button", systemImage: "plus")
-                        .font(.subheadline.weight(.bold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                .glassEffect(in: Capsule())
-                .buttonStyle(.plain)
-
-                Button(action: exportVCF) {
-                    Label("Download", systemImage: "arrow.down.circle")
-                        .font(.subheadline.weight(.bold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                .glassEffect(in: Capsule())
-                .buttonStyle(.plain)
-                .tint(.green)
-            }
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
     private func toggleExpand(_ id: UUID) {
         if expandedIDs.contains(id) { expandedIDs.remove(id) }
         else                        { expandedIDs.insert(id) }
+    }
+}
+
+// MARK: - Output Tab
+
+struct OutputTab: View {
+    var store: VCardStore
+
+    @State private var showShare = false
+    @State private var shareURL: URL? = nil
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    OutputView(text: store.vcfText, onCopy: copyVCF)
+
+                    GlassEffectContainer {
+                        Button(action: exportVCF) {
+                            Label("Download .vcf", systemImage: "arrow.down.circle")
+                                .font(.subheadline.weight(.bold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                        }
+                        .glassEffect(in: Capsule())
+                        .buttonStyle(.plain)
+                        .tint(.green)
+                        .disabled(store.entries.isEmpty)
+                        .opacity(store.entries.isEmpty ? 0.4 : 1)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Output")
+            .navigationBarTitleDisplayMode(.large)
+        }
+        .sheet(isPresented: $showShare) {
+            if let url = shareURL { ActivityView(items: [url]) }
+        }
     }
 
     private func copyVCF() {
@@ -178,6 +207,8 @@ struct ContentView: View {
         showShare = true
     }
 }
+
+// MARK: - Preview
 
 #Preview {
     ContentView()
