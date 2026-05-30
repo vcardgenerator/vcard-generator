@@ -19,25 +19,28 @@ struct OutputView: View {
 
                 Spacer()
 
-                Button {
-                    onCopy()
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { copied = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { copied = false }
+                GlassEffectContainer {
+                    Button {
+                        onCopy()
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { copied = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { copied = false }
+                        }
+                    } label: {
+                        Label(
+                            copied ? "Copied!" : "Copy",
+                            systemImage: copied ? "checkmark" : "doc.on.doc"
+                        )
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .contentTransition(.symbolEffect(.replace))
                     }
-                } label: {
-                    Label(
-                        copied ? "Copied!" : "Copy",
-                        systemImage: copied ? "checkmark" : "doc.on.doc"
-                    )
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .contentTransition(.symbolEffect(.replace))
+                    .glassEffect(in: Capsule())
+                    .buttonStyle(.plain)
+                    .tint(copied ? .green : .primary)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.75), value: copied)
                 }
-                .buttonStyle(GlassButtonStyle())
-                .tint(copied ? .green : .primary)
-                .animation(.spring(response: 0.25, dampingFraction: 0.75), value: copied)
             }
 
             // ── Scrollable VCF text ───────────────────────────────────────────

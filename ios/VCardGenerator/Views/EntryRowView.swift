@@ -158,46 +158,51 @@ struct EntryRowView: View {
 
                 Spacer()
 
-                HStack(spacing: 8) {
-                    // Change: use PhotosPicker label directly
-                    PhotosPicker(selection: $pickerItem, matching: .images) {
-                        Text("Change")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .glassEffect(in: Capsule())
-                    }
-
-                    // Remove
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            entry.image = nil
+                GlassEffectContainer {
+                    HStack(spacing: 8) {
+                        // Change
+                        PhotosPicker(selection: $pickerItem, matching: .images) {
+                            Text("Change")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
                         }
-                    } label: {
-                        Text("Remove")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
+                        .glassEffect(in: Capsule())
+
+                        // Remove
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                entry.image = nil
+                            }
+                        } label: {
+                            Text("Remove")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                        }
+                        .glassEffect(in: Capsule())
+                        .buttonStyle(.plain)
+                        .tint(.red)
                     }
-                    .buttonStyle(GlassButtonStyle())
-                    .tint(.red)
                 }
             }
             .padding(12)
             .glassEffect(in: RoundedRectangle(cornerRadius: 12))
             .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
         } else {
-            PhotosPicker(selection: $pickerItem, matching: .images) {
-                HStack(spacing: 10) {
-                    Image(systemName: "photo.badge.plus")
-                        .font(.title3)
-                        .foregroundStyle(.tint)
-                    Text("Choose Image")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            GlassEffectContainer {
+                PhotosPicker(selection: $pickerItem, matching: .images) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.title3)
+                            .foregroundStyle(.tint)
+                        Text("Choose Image")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 22)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 22)
                 .glassEffect(in: Capsule())
             }
             .transition(.opacity)

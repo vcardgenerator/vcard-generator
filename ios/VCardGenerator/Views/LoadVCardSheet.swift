@@ -16,19 +16,22 @@ struct LoadVCardSheet: View {
 
                     // ── File picker ──────────────────────────────────────────
                     fieldSection(label: "Upload a .vcf file") {
-                        Button { showPicker = true } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "doc.badge.plus")
-                                    .font(.title3)
-                                    .foregroundStyle(.tint)
-                                Text("Choose .vcf file")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                        GlassEffectContainer {
+                            Button { showPicker = true } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "doc.badge.plus")
+                                        .font(.title3)
+                                        .foregroundStyle(.tint)
+                                    Text("Choose .vcf file")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
+                            .glassEffect(in: Capsule())
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(GlassButtonStyle())
                     }
 
                     // ── Divider ──────────────────────────────────────────────
@@ -63,25 +66,29 @@ struct LoadVCardSheet: View {
                     }
 
                     // ── Action buttons ───────────────────────────────────────
-                    HStack(spacing: 10) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Text("Cancel")
-                                .font(.subheadline.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                        }
-                        .buttonStyle(GlassButtonStyle())
-                        .tint(.secondary)
+                    GlassEffectContainer {
+                        HStack(spacing: 10) {
+                            Button {
+                                dismiss()
+                            } label: {
+                                Text("Cancel")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                            }
+                            .glassEffect(in: Capsule())
+                            .buttonStyle(.plain)
+                            .tint(.secondary)
 
-                        Button(action: loadPaste) {
-                            Text("Load")
-                                .font(.subheadline.weight(.bold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                            Button(action: loadPaste) {
+                                Text("Load")
+                                    .font(.subheadline.weight(.bold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                            }
+                            .glassEffect(in: Capsule())
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(GlassButtonStyle())
                     }
                 }
                 .padding(20)

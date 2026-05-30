@@ -1,17 +1,5 @@
 import SwiftUI
 
-// MARK: - Shared glass button style (used across all views)
-
-struct GlassButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .glassEffect(in: Capsule())
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(configuration.isPressed ? 0.85 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.65), value: configuration.isPressed)
-    }
-}
-
 // MARK: - ContentView
 
 struct ContentView: View {
@@ -141,29 +129,33 @@ struct ContentView: View {
 
     // ── Action bar ────────────────────────────────────────────────────────────
     private var actionBar: some View {
-        HStack(spacing: 10) {
-            Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    let entry = VCardEntry()
-                    store.entries.append(entry)
-                    expandedIDs.insert(entry.id)
+        GlassEffectContainer {
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        let entry = VCardEntry()
+                        store.entries.append(entry)
+                        expandedIDs.insert(entry.id)
+                    }
+                } label: {
+                    Label("Add Button", systemImage: "plus")
+                        .font(.subheadline.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
                 }
-            } label: {
-                Label("Add Button", systemImage: "plus")
-                    .font(.subheadline.weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(GlassButtonStyle())
+                .glassEffect(in: Capsule())
+                .buttonStyle(.plain)
 
-            Button(action: exportVCF) {
-                Label("Download", systemImage: "arrow.down.circle")
-                    .font(.subheadline.weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                Button(action: exportVCF) {
+                    Label("Download", systemImage: "arrow.down.circle")
+                        .font(.subheadline.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .glassEffect(in: Capsule())
+                .buttonStyle(.plain)
+                .tint(.green)
             }
-            .buttonStyle(GlassButtonStyle())
-            .tint(.green)
         }
     }
 
