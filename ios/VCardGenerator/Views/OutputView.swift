@@ -7,46 +7,50 @@ struct OutputView: View {
     @State private var copied = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Copy button row
+        VStack(alignment: .leading, spacing: 10) {
+
+            // ── Header row with Copy button ───────────────────────────────────
             HStack {
+                Text("Output")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.5)
+                    .textCase(.uppercase)
+
                 Spacer()
+
                 Button {
                     onCopy()
-                    withAnimation(.spring(duration: 0.2)) { copied = true }
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { copied = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-                        withAnimation { copied = false }
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { copied = false }
                     }
                 } label: {
-                    Text(copied ? "Copied!" : "Copy")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Color(hex: "7A7A96"))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
+                    Label(
+                        copied ? "Copied!" : "Copy",
+                        systemImage: copied ? "checkmark" : "doc.on.doc"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .contentTransition(.symbolEffect(.replace))
                 }
-                .background(Color(hex: "1A1A24"), in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color(hex: "2A2A38"), lineWidth: 1))
-                .buttonStyle(.plain)
-                .contentTransition(.identity)
+                .buttonStyle(GlassButtonStyle(cornerRadius: 8))
+                .tint(copied ? .green : .primary)
+                .animation(.spring(response: 0.25, dampingFraction: 0.75), value: copied)
             }
-            .padding(.bottom, 8)
 
-            // Text output
+            // ── Scrollable VCF text ───────────────────────────────────────────
             ScrollView {
                 Text(text.isEmpty ? "Add buttons above to see output…" : text)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(
-                        text.isEmpty
-                            ? Color(hex: "7A7A96")
-                            : Color(hex: "9b8ff8")
-                    )
+                    .foregroundStyle(text.isEmpty ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(15)
+                    .padding(14)
                     .textSelection(.enabled)
+                    .animation(.easeInOut(duration: 0.2), value: text.isEmpty)
             }
-            .frame(maxHeight: 300)
-            // iOS 26 Liquid Glass
+            .frame(maxHeight: 280)
             .glassEffect(in: RoundedRectangle(cornerRadius: 12))
         }
     }

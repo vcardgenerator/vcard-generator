@@ -14,21 +14,27 @@ struct EntryRowView: View {
     var body: some View {
         VStack(spacing: 0) {
             headerRow
+
             if isExpanded {
-                Divider().background(Color(hex: "2A2A38"))
+                Divider()
+                    .transition(.opacity)
                 detailBody
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        // iOS 26 Liquid Glass card
-        .glassEffect(in: RoundedRectangle(cornerRadius: 12))
+        // Whole card is Liquid Glass
+        .glassEffect(in: RoundedRectangle(cornerRadius: 16))
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
         .onChange(of: pickerItem) { _, newItem in
             Task { @MainActor in
                 guard let item = newItem,
                       let data = try? await item.loadTransferable(type: Data.self),
                       let raw  = UIImage(data: data)
                 else { return }
-                entry.image = VCardService.resizeImage(raw)
-                pickerItem  = nil          // reset so same image can be re-picked
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                    entry.image = VCardService.resizeImage(raw)
+                }
+                pickerItem = nil
             }
         }
     }
@@ -39,12 +45,13 @@ struct EntryRowView: View {
             HStack(spacing: 10) {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: "7C6AF7").opacity(0.55))
+                    .foregroundStyle(.secondary)
 
                 Text("#\(index)")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(Color(hex: "7C6AF7"))
+                    .foregroundStyle(.tint)
                     .monospacedDigit()
+                    .contentTransition(.numericText())
                     .frame(minWidth: 22, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -57,23 +64,20 @@ struct EntryRowView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                            .transition(.opacity)
                     }
                 }
 
                 Spacer(minLength: 4)
 
-                // Image dot indicator
                 if entry.image != nil {
                     Circle()
-                        .fill(LinearGradient(
-                            colors: [Color(hex: "34C98A"), Color(hex: "2EBBCC")],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ))
+                        .fill(.tint)
                         .frame(width: 7, height: 7)
+                        .transition(.scale.combined(with: .opacity))
                 }
 
-                // Inline action buttons
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Button(action: onDuplicate) {
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 13))
@@ -93,7 +97,7 @@ struct EntryRowView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .animation(.spring(duration: 0.22), value: isExpanded)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isExpanded)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 13)
@@ -106,15 +110,16 @@ struct EntryRowView: View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
                 fieldColumn(label: "Title") {
-                    DarkTextField("Button Title", text: $entry.title)
+                    GlassTextField("Button Title", text: $entry.title)
                 }
                 fieldColumn(label: "Subtitle") {
-                    DarkTextField("Short description", text: $entry.subtitle)
+                    GlassTextField("Short description", text: $entry.subtitle)
                 }
             }
 
-            fieldColumn(label: "Icon Image (optional)") {
+            fieldColumn(label: "Icon Image") {
                 imageArea
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: entry.image != nil)
             }
         }
         .padding(16)
@@ -124,9 +129,9 @@ struct EntryRowView: View {
     private func fieldColumn<C: View>(label: String, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.8)
-                .foregroundStyle(Color(hex: "7A7A96"))
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(.secondary)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,10 +147,6 @@ struct EntryRowView: View {
                     .scaledToFill()
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .strokeBorder(Color(hex: "2A2A38"), lineWidth: 1)
-                    )
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Image loaded")
@@ -158,61 +159,55 @@ struct EntryRowView: View {
                 Spacer()
 
                 HStack(spacing: 8) {
-                    // Change — wraps PhotosPicker so the whole label is tappable
+                    // Change: use PhotosPicker label directly
                     PhotosPicker(selection: $pickerItem, matching: .images) {
                         Text("Change")
-                            .font(.caption.weight(.bold))
-                            .padding(.horizontal, 11).padding(.vertical, 6)
-                            .background(Color(hex: "7C6AF7").opacity(0.14),
-                                        in: RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6)
-                                .strokeBorder(Color(hex: "7C6AF7").opacity(0.3)))
-                            .foregroundStyle(Color(hex: "7C6AF7"))
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .glassEffect(in: RoundedRectangle(cornerRadius: 8))
                     }
 
                     // Remove
-                    Button("Remove") {
-                        entry.image = nil
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            entry.image = nil
+                        }
+                    } label: {
+                        Text("Remove")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
                     }
-                    .font(.caption.weight(.bold))
-                    .padding(.horizontal, 11).padding(.vertical, 6)
-                    .background(Color(hex: "F75A5A").opacity(0.11),
-                                in: RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color(hex: "F75A5A").opacity(0.25)))
-                    .foregroundStyle(Color(hex: "F75A5A"))
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassButtonStyle(cornerRadius: 8))
+                    .tint(.red)
                 }
             }
-            .padding(13)
-            .background(Color(hex: "14141E"), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color(hex: "2A2A38"), lineWidth: 1))
+            .padding(12)
+            .glassEffect(in: RoundedRectangle(cornerRadius: 12))
+            .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
         } else {
             PhotosPicker(selection: $pickerItem, matching: .images) {
                 HStack(spacing: 10) {
-                    Image(systemName: "photo")
-                        .foregroundStyle(Color(hex: "7C6AF7"))
-                    Text("Tap to choose an image")
-                        .foregroundStyle(Color(hex: "7A7A96"))
+                    Image(systemName: "photo.badge.plus")
+                        .font(.title3)
+                        .foregroundStyle(.tint)
+                    Text("Choose Image")
                         .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(
-                            style: StrokeStyle(lineWidth: 1.5, dash: [6])
-                        )
-                        .foregroundStyle(Color(hex: "2A2A38"))
-                )
+                .padding(.vertical, 22)
+                .glassEffect(in: RoundedRectangle(cornerRadius: 12))
             }
+            .transition(.opacity)
         }
     }
 }
 
-// ── Dark text field ───────────────────────────────────────────────────────────
-struct DarkTextField: View {
+// MARK: - Glass Text Field
+
+struct GlassTextField: View {
     let placeholder: String
     @Binding var text: String
 
@@ -223,15 +218,8 @@ struct DarkTextField: View {
 
     var body: some View {
         TextField(placeholder, text: $text)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 9)
-            .background(Color(hex: "14141E"), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color(hex: "2A2A38"), lineWidth: 1)
-            )
-            .foregroundStyle(Color(hex: "F0F0F8"))
-            .tint(Color(hex: "7C6AF7"))
-            .font(.system(size: 15))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .glassEffect(in: RoundedRectangle(cornerRadius: 10))
     }
 }
