@@ -9,7 +9,10 @@ struct EntryRowView: View {
     let onDelete:    () -> Void
     let onDuplicate: () -> Void
 
-    @State private var pickerItem: PhotosPickerItem? = nil
+    @State private var pickerItem:      PhotosPickerItem? = nil
+    @State private var showPhotoPicker  = false
+    @State private var showFilePicker   = false
+    @State private var showLucidePicker = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,9 +25,23 @@ struct EntryRowView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        // Whole card is Liquid Glass
         .glassEffect(in: RoundedRectangle(cornerRadius: 16))
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
+        // ── Image source pickers ──────────────────────────────────────────────
+        .photosPicker(isPresented: $showPhotoPicker, selection: $pickerItem, matching: .images)
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.image]
+        ) { result in
+            handleFileImport(result)
+        }
+        .sheet(isPresented: $showLucidePicker) {
+            LucideIconPickerSheet { image in
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                    entry.image = VCardService.resizeImage(image)
+                }
+            }
+        }
         .onChange(of: pickerItem) { _, newItem in
             Task { @MainActor in
                 guard let item = newItem,
@@ -160,7 +177,7 @@ struct EntryRowView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Image loaded")
                         .font(.subheadline.weight(.semibold))
-                    Text("123 × 123 px")
+                    Text("\(Int(img.size.width)) × \(Int(img.size.height)) px")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -169,8 +186,18 @@ struct EntryRowView: View {
 
                 GlassEffectContainer {
                     HStack(spacing: 8) {
-                        // Change
-                        PhotosPicker(selection: $pickerItem, matching: .images) {
+                        // ── Change (dropdown) ──────────────────────────────
+                        Menu {
+                            Button { showPhotoPicker  = true } label: {
+                                Label("Photo Library", systemImage: "photo")
+                            }
+                            Button { showFilePicker   = true } label: {
+                                Label("Choose File",   systemImage: "folder.badge.plus")
+                            }
+                            Button { showLucidePicker = true } label: {
+                                Label("Lucide Icons",  systemImage: "square.grid.3x3")
+                            }
+                        } label: {
                             Text("Change")
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 12)
@@ -178,7 +205,7 @@ struct EntryRowView: View {
                         }
                         .glassEffect(in: Capsule())
 
-                        // Remove
+                        // ── Remove ─────────────────────────────────────────
                         Button {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                 entry.image = nil
@@ -199,8 +226,19 @@ struct EntryRowView: View {
             .glassEffect(in: RoundedRectangle(cornerRadius: 12))
             .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
         } else {
+            // ── No image — Choose Image dropdown ──────────────────────────────
             GlassEffectContainer {
-                PhotosPicker(selection: $pickerItem, matching: .images) {
+                Menu {
+                    Button { showPhotoPicker  = true } label: {
+                        Label("Photo Library", systemImage: "photo")
+                    }
+                    Button { showFilePicker   = true } label: {
+                        Label("Choose File",   systemImage: "folder.badge.plus")
+                    }
+                    Button { showLucidePicker = true } label: {
+                        Label("Lucide Icons",  systemImage: "square.grid.3x3")
+                    }
+                } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "photo.badge.plus")
                             .font(.title3)
@@ -215,6 +253,18 @@ struct EntryRowView: View {
                 .glassEffect(in: Capsule())
             }
             .transition(.opacity)
+        }
+    }
+
+    // ── File import handler ───────────────────────────────────────────────────
+    private func handleFileImport(_ result: Result<URL, Error>) {
+        guard let url = try? result.get(),
+              url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+        guard let data = try? Data(contentsOf: url),
+              let raw  = UIImage(data: data) else { return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+            entry.image = VCardService.resizeImage(raw)
         }
     }
 }

@@ -7,7 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            Tab("Buttons", systemImage: "list.bullet.rectangle") {
+            Tab("Buttons", systemImage: "square.stack.3d.up.fill") {
                 BuilderTab(store: store)
             }
             Tab("Output", systemImage: "doc.text") {
@@ -153,7 +153,7 @@ struct BuilderTab: View {
     // ── Empty state ───────────────────────────────────────────────────────────
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "list.bullet.rectangle")
+            Image(systemName: "square.stack.3d.up.fill")
                 .font(.system(size: 48, weight: .ultraLight))
                 .foregroundStyle(.secondary)
                 .symbolEffect(.pulse)

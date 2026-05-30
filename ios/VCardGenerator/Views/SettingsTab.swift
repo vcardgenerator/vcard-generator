@@ -9,7 +9,7 @@ struct SettingsTab: View {
             List {
                 Section {
                     Toggle(isOn: $hapticsEnabled) {
-                        Label("Haptic Feedback", systemImage: "waveform")
+                        Label("Haptics", systemImage: "waveform")
                     }
                     Toggle(isOn: $reduceMotion) {
                         Label("Reduce Motion", systemImage: "circle.dotted.and.circle")

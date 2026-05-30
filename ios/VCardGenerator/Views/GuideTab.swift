@@ -7,7 +7,7 @@ struct GuideTab: View {
                 VStack(spacing: 16) {
 
                     // ── Intro ─────────────────────────────────────────────────
-                    Text("Once you've built your buttons and copied the output, wire it up in the Shortcuts app.")
+                    Text("Once you\u{2019}ve built your buttons and copied the output, wire it up in the Shortcuts app.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -16,16 +16,16 @@ struct GuideTab: View {
 
                     // ── Steps ─────────────────────────────────────────────────
                     stepCard("1", title: "Text",
-                             desc: "Add a Text action. Paste your copied vCard output here — tap Copy in the Output tab first.")
+                             desc: "Add a Text action. Paste your copied vCard output here \u{2014} tap Copy in the Output tab first.")
 
                     stepCard("2", title: "Set Name",
-                             desc: "Add a Set Name action. Type \u{201c}Menu.vcf\u{201d} as the filename.")
+                             desc: "Add a Set Name action. Set the filename to \u{201c}Menu.vcf\u{201d}.")
 
                     stepCard("3", title: "Get Variable",
-                             desc: "Add a Get Variable action. Tap the variable field, select the Set Name result above (this is a \u{201c}magic variable\u{201d}), then tap it again and change its type to Contact.")
+                             desc: "Add a Get Variable action. Select the Set Name result \u{2014} it will appear as \u{201c}Renamed Item\u{201d}. Tap \u{201c}Renamed Item\u{201d} and change its type to Contact.")
 
                     stepCard("4", title: "Choose From List",
-                             desc: "Add a Choose From List action. When your shortcut runs, your buttons appear as a scrollable, tappable menu.")
+                             desc: "Add a Choose From List action. Select \u{201c}Renamed Item\u{201d} as the input. When your shortcut runs, your buttons appear as a scrollable, tappable menu.")
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)

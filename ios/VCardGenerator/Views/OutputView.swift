@@ -38,7 +38,7 @@ struct OutputView: View {
 
             // ── Scrollable VCF text ───────────────────────────────────────────
             ScrollView {
-                Text(text.isEmpty ? "Add buttons above to see output…" : text)
+                Text(text.isEmpty ? "Add buttons to see output…" : text)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(text.isEmpty ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
