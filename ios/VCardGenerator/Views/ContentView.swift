@@ -65,9 +65,9 @@ struct ContentView: View {
                             ))
                         }
                         .onMove  { store.moveEntries(from: $0, to: $1) }
-                        .onDelete {
+                        .onDelete { offsets in
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                store.removeEntries(at: $0)
+                                store.removeEntries(at: offsets)
                             }
                         }
                     }
