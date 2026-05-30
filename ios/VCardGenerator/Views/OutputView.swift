@@ -9,16 +9,9 @@ struct OutputView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
 
-            // ── Header row with Copy button ───────────────────────────────────
+            // ── Copy button ───────────────────────────────────────────────────
             HStack {
-                Text("Output")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .tracking(0.5)
-                    .textCase(.uppercase)
-
                 Spacer()
-
                 GlassEffectContainer {
                     Button {
                         onCopy()

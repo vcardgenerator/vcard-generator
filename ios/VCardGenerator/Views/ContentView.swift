@@ -13,8 +13,11 @@ struct ContentView: View {
             Tab("Output", systemImage: "doc.text") {
                 OutputTab(store: store)
             }
-            Tab("Guide", systemImage: "questionmark.circle") {
+            Tab("Guide", systemImage: "book.fill") {
                 GuideTab()
+            }
+            Tab("Settings", systemImage: "gear") {
+                SettingsTab()
             }
         }
     }
@@ -27,6 +30,13 @@ struct BuilderTab: View {
 
     @State private var expandedIDs = Set<UUID>()
     @State private var showLoad    = false
+    @AppStorage("reduceMotion") private var reduceMotion = false
+
+    private var motion: Animation {
+        reduceMotion
+            ? .easeInOut(duration: 0.15)
+            : .spring(response: 0.4, dampingFraction: 0.8)
+    }
 
     var body: some View {
         NavigationStack {
@@ -45,17 +55,19 @@ struct BuilderTab: View {
                                 index:       idx,
                                 isExpanded:  expandedIDs.contains(entry.id),
                                 onToggle: {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    withAnimation(reduceMotion
+                                        ? .easeInOut(duration: 0.15)
+                                        : .spring(response: 0.35, dampingFraction: 0.85)) {
                                         toggleExpand(entry.id)
                                     }
                                 },
                                 onDelete: {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    withAnimation(motion) {
                                         store.removeEntry(entry)
                                     }
                                 },
                                 onDuplicate: {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    withAnimation(motion) {
                                         let copy = store.duplicateEntry(entry)
                                         expandedIDs.insert(copy.id)
                                     }
@@ -66,37 +78,26 @@ struct BuilderTab: View {
                             .listRowInsets(.init(top: 5, leading: 16, bottom: 5, trailing: 16))
                             .transition(.asymmetric(
                                 insertion: .scale(scale: 0.88, anchor: .top).combined(with: .opacity),
-                                removal:   .scale(scale: 0.88).combined(with: .opacity)
+                                removal:   .opacity
                             ))
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        store.removeEntry(entry)
-                                    }
+                                    Haptics.impact(.rigid)
+                                    store.removeEntry(entry)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
                             }
                         }
-                        .onMove  { store.moveEntries(from: $0, to: $1) }
-                        .onDelete { offsets in
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                store.removeEntries(at: offsets)
-                            }
-                        }
                     }
-                } header: {
-                    Text("Buttons")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .textCase(nil)
                 }
 
                 // ── Add Button ────────────────────────────────────────────────
                 Section {
                     GlassEffectContainer {
                         Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            Haptics.impact(.medium)
+                            withAnimation(motion) {
                                 let entry = VCardEntry()
                                 store.entries.append(entry)
                                 expandedIDs.insert(entry.id)
@@ -137,14 +138,11 @@ struct BuilderTab: View {
                     Button("Load") { showLoad = true }
                         .fontWeight(.semibold)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditButton().fontWeight(.semibold)
-                }
             }
         }
         .sheet(isPresented: $showLoad) {
             LoadVCardSheet { loaded in
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                withAnimation(motion) {
                     store.loadEntries(loaded)
                     loaded.forEach { expandedIDs.insert($0.id) }
                 }
@@ -233,6 +231,7 @@ struct OutputTab: View {
     }
 
     private func copyVCF() {
+        Haptics.impact(.light)
         UIPasteboard.general.string = store.vcfText
     }
 

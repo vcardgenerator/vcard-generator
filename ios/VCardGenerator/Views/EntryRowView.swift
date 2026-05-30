@@ -41,7 +41,10 @@ struct EntryRowView: View {
 
     // ── Header row ────────────────────────────────────────────────────────────
     private var headerRow: some View {
-        Button(action: onToggle) {
+        Button {
+            Haptics.impact(.light)
+            onToggle()
+        } label: {
             HStack(spacing: 10) {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 13, weight: .medium))
@@ -78,17 +81,23 @@ struct EntryRowView: View {
                 }
 
                 HStack(spacing: 8) {
-                    Button(action: onDuplicate) {
+                    Button {
+                        Haptics.impact(.medium)
+                        onDuplicate()
+                    } label: {
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.borderless)
 
-                    Button(role: .destructive, action: onDelete) {
+                    Button(role: .destructive) {
+                        Haptics.impact(.rigid)
+                        onDelete()
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.red)
                     }
                     .buttonStyle(.borderless)
                 }
