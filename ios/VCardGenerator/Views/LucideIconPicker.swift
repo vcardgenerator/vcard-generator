@@ -10,17 +10,34 @@ struct LucideIconPickerSheet: View {
     @State private var pendingIconName: String? = nil   // set when user taps an icon
     @State private var showColorPicker = false
     @State private var searchText      = ""
+    @State private var gridLoading     = true
 
     var body: some View {
         NavigationStack {
-            LucideWebGrid(searchText: searchText) { name in
-                pendingIconName = name
-                showColorPicker = true
-            }
+            LucideWebGrid(
+                searchText: searchText,
+                onSelect: { name in
+                    pendingIconName = name
+                    showColorPicker = true
+                },
+                onReady: {
+                    withAnimation(.easeOut(duration: 0.25)) { gridLoading = false }
+                }
+            )
             .ignoresSafeArea(edges: .bottom)
+            .overlay {
+                if gridLoading {
+                    VStack(spacing: 12) {
+                        ProgressView().scaleEffect(1.2)
+                        Text("Loading icons…")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
             .searchable(text: $searchText,
                         placement: .navigationBarDrawer(displayMode: .always),
-                        prompt: "Search \(LucideIconPickerSheet.icons.count) icons")
+                        prompt: "Search Lucide icons")
             .navigationTitle("Lucide Icons")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -39,49 +56,21 @@ struct LucideIconPickerSheet: View {
         }
     }
 
-    // ── Icon list (sorted) ────────────────────────────────────────────────────
-    static let icons: [String] = [
-        "activity", "airplay", "alarm-clock", "alert-circle", "alert-octagon",
-        "alert-triangle", "align-center", "align-justify", "align-left", "align-right",
-        "anchor", "aperture", "archive", "arrow-down", "arrow-down-circle",
-        "arrow-down-left", "arrow-down-right", "arrow-left", "arrow-left-circle",
-        "arrow-right", "arrow-right-circle", "arrow-up", "arrow-up-circle",
-        "arrow-up-left", "arrow-up-right", "at-sign", "award", "bar-chart",
-        "bar-chart-2", "battery", "battery-charging", "bell", "bell-off",
-        "bluetooth", "bold", "book", "book-open", "bookmark", "box",
-        "briefcase", "calendar", "camera", "cast", "check", "check-circle",
-        "check-square", "chevron-down", "chevron-left", "chevron-right", "chevron-up",
-        "circle", "clipboard", "clock", "cloud", "cloud-drizzle", "cloud-lightning",
-        "cloud-rain", "cloud-snow", "code", "coffee", "columns", "command",
-        "compass", "copy", "cpu", "credit-card", "crop", "crosshair",
-        "database", "delete", "disc", "dollar-sign", "download", "download-cloud",
-        "droplets", "edit", "edit-2", "edit-3", "external-link", "eye", "eye-off",
-        "fast-forward", "feather", "file", "file-minus", "file-plus", "file-text",
-        "filter", "flag", "folder", "folder-minus", "folder-open", "folder-plus",
-        "frown", "gift", "git-branch", "git-commit", "github", "globe",
-        "grid", "hard-drive", "hash", "headphones", "heart", "help-circle",
-        "home", "image", "inbox", "info", "italic", "key", "layers",
-        "layout", "link", "link-2", "list", "loader", "lock", "log-in",
-        "log-out", "mail", "map", "map-pin", "maximize", "maximize-2",
-        "meh", "menu", "message-circle", "message-square", "mic", "mic-off",
-        "minimize", "minus", "minus-circle", "monitor", "moon", "more-horizontal",
-        "more-vertical", "music", "navigation", "octagon", "package", "paperclip",
-        "pause", "pause-circle", "pen-tool", "percent", "phone", "phone-call",
-        "phone-off", "pie-chart", "play", "play-circle", "plus", "plus-circle",
-        "plus-square", "pocket", "power", "printer", "radio", "refresh-cw",
-        "rewind", "rss", "save", "scissors", "search", "send", "server",
-        "settings", "share", "share-2", "shield", "shopping-bag", "shopping-cart",
-        "shuffle", "sidebar", "skip-back", "skip-forward", "slash", "sliders",
-        "smartphone", "smile", "speaker", "square", "star", "stop-circle",
-        "sun", "sunrise", "sunset", "tablet", "tag", "target", "terminal",
-        "thumbs-down", "thumbs-up", "toggle-left", "toggle-right", "tool",
-        "trash", "trash-2", "trending-down", "trending-up", "triangle",
-        "truck", "tv", "type", "umbrella", "underline", "unlock",
-        "upload", "upload-cloud", "user", "user-check", "user-minus",
-        "user-plus", "user-x", "users", "video", "video-off", "voicemail",
-        "volume", "volume-1", "volume-2", "volume-x", "watch", "wifi",
-        "wifi-off", "wind", "x", "x-circle", "x-octagon", "x-square",
-        "youtube", "zap", "zap-off", "zoom-in", "zoom-out"
+    // ── Fallback list (used only if the live fetch fails) ─────────────────────
+    static let fallbackIcons: [String] = [
+        "activity", "airplay", "alarm-clock", "alert-circle", "alert-triangle",
+        "anchor", "archive", "arrow-down", "arrow-left", "arrow-right", "arrow-up",
+        "award", "bell", "book", "bookmark", "box", "calendar", "camera", "check",
+        "chevron-down", "chevron-left", "chevron-right", "chevron-up", "circle",
+        "clock", "cloud", "code", "coffee", "compass", "copy", "credit-card",
+        "download", "edit", "eye", "file", "file-text", "filter", "flag", "folder",
+        "gift", "globe", "grid", "heart", "home", "image", "info", "key", "layers",
+        "link", "list", "lock", "mail", "map", "map-pin", "menu", "message-circle",
+        "mic", "monitor", "moon", "music", "package", "paperclip", "pause", "phone",
+        "play", "plus", "power", "printer", "save", "search", "send", "settings",
+        "share", "shield", "shopping-cart", "smartphone", "star", "sun", "tag",
+        "target", "terminal", "trash", "trending-up", "user", "users", "video",
+        "volume", "wifi", "x", "zap"
     ].sorted()
 }
 
@@ -90,11 +79,12 @@ struct LucideIconPickerSheet: View {
 struct LucideWebGrid: UIViewRepresentable {
     var searchText: String
     var onSelect:   (String) -> Void
+    var onReady:    () -> Void
 
-    // Build the full HTML page once; JS handles filtering client-side
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "iconTapped")
+        config.userContentController.add(context.coordinator, name: "gridReady")
 
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.scrollView.backgroundColor = .clear
@@ -106,28 +96,38 @@ struct LucideWebGrid: UIViewRepresentable {
     }
 
     func updateUIView(_ wv: WKWebView, context: Context) {
-        // Escape JS string — single-quote-safe
-        let safe = searchText.replacingOccurrences(of: "'", with: "\\'")
+        let safe = searchText.replacingOccurrences(of: "\\", with: "\\\\")
+                             .replacingOccurrences(of: "'", with: "\\'")
         wv.evaluateJavaScript("filterIcons('\(safe)')", completionHandler: nil)
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onSelect: onSelect)
+        Coordinator(onSelect: onSelect, onReady: onReady)
     }
 
     // ── Coordinator ───────────────────────────────────────────────────────────
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         let onSelect: (String) -> Void
-        init(onSelect: @escaping (String) -> Void) { self.onSelect = onSelect }
+        let onReady:  () -> Void
+        init(onSelect: @escaping (String) -> Void, onReady: @escaping () -> Void) {
+            self.onSelect = onSelect
+            self.onReady  = onReady
+        }
 
         func userContentController(_ ucc: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
-            guard message.name == "iconTapped",
-                  let name = message.body as? String else { return }
-            DispatchQueue.main.async { self.onSelect(name) }
+            switch message.name {
+            case "iconTapped":
+                if let name = message.body as? String {
+                    DispatchQueue.main.async { self.onSelect(name) }
+                }
+            case "gridReady":
+                DispatchQueue.main.async { self.onReady() }
+            default:
+                break
+            }
         }
 
-        // Open external links in Safari, not in the WKWebView
         func webView(_ webView: WKWebView,
                      decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -139,9 +139,9 @@ struct LucideWebGrid: UIViewRepresentable {
         }
     }
 
-    // ── Grid HTML (all icons embedded as <img> tags, lazy-loaded) ─────────────
+    // ── Grid HTML — fetches the full icon list from Lucide at runtime ──────────
     private static func gridHTML() -> String {
-        let iconsJSON = LucideIconPickerSheet.icons
+        let fallbackJSON = LucideIconPickerSheet.fallbackIcons
             .map { "\"\($0)\"" }
             .joined(separator: ",")
 
@@ -151,47 +151,65 @@ struct LucideWebGrid: UIViewRepresentable {
         <head>
         <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
         <style>
-        *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:transparent;font-family:-apple-system,sans-serif;padding:12px;}
-        #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;}
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+        body{background:transparent;font-family:-apple-system,sans-serif;padding:12px 12px 32px;}
+        #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;}
         .cell{display:flex;flex-direction:column;align-items:center;justify-content:center;
-              gap:5px;padding:8px 4px;border-radius:12px;cursor:pointer;
-              background:rgba(120,120,128,0.12);}
-        .cell:active{background:rgba(0,122,255,0.18);}
-        .cell img{width:32px;height:32px;display:block;}
-        .cell span{font-size:9px;color:#888;text-align:center;word-break:break-all;line-height:1.2;}
+              gap:6px;padding:10px 4px;border-radius:14px;cursor:pointer;
+              background:rgba(120,120,128,0.16);transition:background .12s;}
+        .cell:active{background:rgba(0,122,255,0.30);}
+        .cell img{width:28px;height:28px;display:block;}
+        .cell span{font-size:8.5px;color:#8a8a8e;text-align:center;
+                   word-break:break-all;line-height:1.15;max-height:2.3em;overflow:hidden;}
         .hidden{display:none!important;}
+        /* Lucide SVGs are black strokes — invert to white in dark mode so they stay visible */
+        @media (prefers-color-scheme: dark){ .cell img{ filter:invert(1); } }
         </style>
         </head>
         <body>
         <div id="grid"></div>
         <script>
-        const icons=[\(iconsJSON)];
-        const base="https://unpkg.com/lucide-static@latest/icons/";
+        const fallback=[\(fallbackJSON)];
         const grid=document.getElementById("grid");
-        icons.forEach(name=>{
-          const cell=document.createElement("div");
-          cell.className="cell";
-          cell.dataset.name=name;
-          const img=document.createElement("img");
-          img.src=base+name+".svg";
-          img.loading="lazy";
-          img.width=32;img.height=32;
-          const lbl=document.createElement("span");
-          lbl.textContent=name;
-          cell.appendChild(img);
-          cell.appendChild(lbl);
-          cell.addEventListener("click",()=>{
-            window.webkit.messageHandlers.iconTapped.postMessage(name);
+
+        function build(names, base){
+          const frag=document.createDocumentFragment();
+          names.forEach(name=>{
+            const cell=document.createElement("div");
+            cell.className="cell"; cell.dataset.name=name;
+            const img=document.createElement("img");
+            img.src=base+name+".svg"; img.loading="lazy"; img.width=28; img.height=28;
+            const lbl=document.createElement("span"); lbl.textContent=name;
+            cell.appendChild(img); cell.appendChild(lbl);
+            cell.addEventListener("click",()=>{
+              window.webkit.messageHandlers.iconTapped.postMessage(name);
+            });
+            frag.appendChild(cell);
           });
-          grid.appendChild(cell);
-        });
+          grid.appendChild(frag);
+        }
+
         function filterIcons(q){
           const lq=q.toLowerCase();
           grid.querySelectorAll(".cell").forEach(c=>{
-            c.classList.toggle("hidden",lq.length>0&&!c.dataset.name.includes(lq));
+            c.classList.toggle("hidden", lq.length>0 && c.dataset.name.indexOf(lq)===-1);
           });
         }
+
+        async function init(){
+          let names=fallback;
+          let base="https://unpkg.com/lucide-static@latest/icons/";
+          try{
+            const res=await fetch("https://unpkg.com/lucide-static@latest/tags.json");
+            const m=res.url.match(/lucide-static@([^/]+)/);
+            const tags=await res.json();
+            names=Object.keys(tags).sort();
+            if(m){ base="https://unpkg.com/lucide-static@"+m[1]+"/icons/"; }
+          }catch(e){ /* keep fallback */ }
+          build(names, base);
+          window.webkit.messageHandlers.gridReady.postMessage("ready");
+        }
+        init();
         </script>
         </body>
         </html>
@@ -207,7 +225,7 @@ struct LucideColorPickerSheet: View {
     let onConfirm: (UIImage) -> Void
 
     @State private var selectedColor    = Color(red: 0.07, green: 0.07, blue: 0.07)
-    @State private var selectedPreset   = "Black"   // tracks which swatch is active
+    @State private var selectedPreset   = "Black"
     @State private var isRendering      = false
 
     private let presets: [(String, Color)] = [
@@ -226,15 +244,10 @@ struct LucideColorPickerSheet: View {
             ScrollView {
                 VStack(spacing: 24) {
 
-                    // ── Preview (color swatch with icon name) ─────────────────
-                    VStack(spacing: 10) {
-                        Circle()
-                            .fill(selectedColor)
-                            .frame(width: 80, height: 80)
-                            .shadow(color: selectedColor.opacity(0.4), radius: 10, y: 4)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedColor.hexString)
-                    }
-                    .padding(.top, 8)
+                    // ── Preview ───────────────────────────────────────────────
+                    LucideIconPreview(iconName: iconName, color: selectedColor)
+                        .frame(width: 96, height: 96)
+                        .padding(.top, 8)
 
                     Text(iconName)
                         .font(.headline)
@@ -263,11 +276,13 @@ struct LucideColorPickerSheet: View {
                                             .fill(color)
                                             .frame(width: 36, height: 36)
                                             .overlay(
+                                                Circle().stroke(.gray.opacity(0.35), lineWidth: 1)
+                                            )
+                                            .overlay(
                                                 Circle()
                                                     .stroke(Color.accentColor, lineWidth: 2.5)
                                                     .opacity(selectedPreset == label ? 1 : 0)
                                             )
-                                            .shadow(color: color.opacity(0.4), radius: 4, y: 2)
                                         Text(label)
                                             .font(.caption2)
                                             .foregroundStyle(.secondary)
@@ -288,7 +303,7 @@ struct LucideColorPickerSheet: View {
                         ColorPicker("", selection: $selectedColor, supportsOpacity: false)
                             .labelsHidden()
                             .onChange(of: selectedColor) { _, _ in
-                                selectedPreset = ""  // deselect preset ring
+                                selectedPreset = ""
                             }
                     }
                     .padding(16)
@@ -351,6 +366,49 @@ struct LucideColorPickerSheet: View {
     }
 }
 
+// MARK: - Live icon preview (renders the actual icon in the chosen color) ──────
+
+private struct LucideIconPreview: View {
+    let iconName: String
+    let color:    Color
+
+    @State private var image:    UIImage? = nil
+    @State private var svgCache: String?  = nil   // fetched once, reused on color change
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color(UIColor.secondarySystemBackground))
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(20)
+                    .transition(.opacity)
+            } else {
+                ProgressView()
+            }
+        }
+        .task(id: color.hexString) {
+            await rerender()
+        }
+    }
+
+    private func rerender() async {
+        // Fetch the raw SVG only the first time
+        if svgCache == nil {
+            guard let url = URL(string: "https://unpkg.com/lucide-static@latest/icons/\(iconName).svg"),
+                  let (data, _) = try? await URLSession.shared.data(from: url),
+                  let svg = String(data: data, encoding: .utf8) else { return }
+            svgCache = svg
+        }
+        guard let svg = svgCache else { return }
+        let rendered = await SVGRenderer.shared.render(svgString: svg, colorHex: color.hexString)
+        if Task.isCancelled { return }
+        withAnimation(.easeInOut(duration: 0.2)) { image = rendered }
+    }
+}
+
 // MARK: - SVG → UIImage renderer (fixed offset) ───────────────────────────────
 
 @MainActor
@@ -361,12 +419,7 @@ final class SVGRenderer {
     func render(svgString: String, colorHex: String = "#111827", size: CGFloat = 120) async -> UIImage? {
         let dim = Int(size)
 
-        // Replace `currentColor` AND any existing width/height attributes on the root <svg>
-        // so the SVG doesn't fight our CSS sizing.
-        var svg = svgString
-            .replacingOccurrences(of: "currentColor", with: colorHex)
-
-        // Strip width="..." and height="..." attrs from the opening <svg tag
+        var svg = svgString.replacingOccurrences(of: "currentColor", with: colorHex)
         svg = stripSVGDimensions(svg)
 
         let html = """
@@ -406,8 +459,7 @@ final class SVGRenderer {
         window.addSubview(wv)
 
         wv.loadHTMLString(html, baseURL: nil)
-        // Wait for render — 700ms is generous but reliable
-        try? await Task.sleep(for: .milliseconds(700))
+        try? await Task.sleep(for: .milliseconds(550))
 
         let snapConfig = WKSnapshotConfiguration()
         snapConfig.rect = CGRect(origin: .zero,
@@ -430,7 +482,6 @@ final class SVGRenderer {
 
         let tagContent = String(svg[svgRange.upperBound..<closeRange.lowerBound])
 
-        // Remove width="..." and height="..."
         var cleaned = tagContent
         let pattern = #"\s+(width|height)="[^"]*""#
         if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {

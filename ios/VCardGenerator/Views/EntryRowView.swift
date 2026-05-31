@@ -163,49 +163,66 @@ struct EntryRowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // ── White-tinted SF Symbol for menus (UIKit menus override .foregroundStyle,
+    //    so we bake the color into an .alwaysOriginal UIImage) ──────────────────
+    private func menuIcon(_ systemName: String) -> Image {
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        let base   = UIImage(systemName: systemName, withConfiguration: config) ?? UIImage()
+        let white  = base.withTintColor(.white, renderingMode: .alwaysOriginal)
+        return Image(uiImage: white)
+    }
+
+    @ViewBuilder
+    private var imageSourceMenuItems: some View {
+        Button { showPhotoPicker  = true } label: {
+            Label { Text("Photo Library") } icon: { menuIcon("photo") }
+        }
+        Button { showFilePicker   = true } label: {
+            Label { Text("Choose File") }   icon: { menuIcon("folder.badge.plus") }
+        }
+        Button { showLucidePicker = true } label: {
+            Label { Text("Lucide Icons") }  icon: { menuIcon("square.grid.3x3") }
+        }
+    }
+
     // ── Image area ────────────────────────────────────────────────────────────
     @ViewBuilder
     private var imageArea: some View {
         if let img = entry.image {
-            HStack(spacing: 12) {
-                Image(uiImage: img)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            VStack(spacing: 12) {
+                // ── Thumbnail + info ──────────────────────────────────────────
+                HStack(spacing: 12) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 52, height: 52)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Image loaded")
-                        .font(.subheadline.weight(.semibold))
-                    Text("\(Int(img.size.width)) × \(Int(img.size.height)) px")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Image loaded")
+                            .font(.subheadline.weight(.semibold))
+                        Text("\(Int(img.size.width)) × \(Int(img.size.height)) px")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 0)
                 }
 
-                Spacer()
-
+                // ── Change / Remove on their own full-width row ───────────────
                 GlassEffectContainer {
                     HStack(spacing: 8) {
-                        // ── Change (dropdown) ──────────────────────────────
                         Menu {
-                            Button { showPhotoPicker  = true } label: {
-                                Label { Text("Photo Library") } icon: { Image(systemName: "photo").foregroundStyle(.white) }
-                            }
-                            Button { showFilePicker   = true } label: {
-                                Label { Text("Choose File") } icon: { Image(systemName: "folder.badge.plus").foregroundStyle(.white) }
-                            }
-                            Button { showLucidePicker = true } label: {
-                                Label { Text("Lucide Icons") } icon: { Image(systemName: "square.grid.3x3").foregroundStyle(.white) }
-                            }
+                            imageSourceMenuItems
                         } label: {
                             Text("Change")
                                 .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
                         }
                         .glassEffect(in: Capsule())
 
-                        // ── Remove ─────────────────────────────────────────
                         Button {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                 entry.image = nil
@@ -213,8 +230,9 @@ struct EntryRowView: View {
                         } label: {
                             Text("Remove")
                                 .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
                         }
                         .glassEffect(in: Capsule())
                         .buttonStyle(.plain)
@@ -229,15 +247,7 @@ struct EntryRowView: View {
             // ── No image — Choose Image dropdown ──────────────────────────────
             GlassEffectContainer {
                 Menu {
-                    Button { showPhotoPicker  = true } label: {
-                        Label { Text("Photo Library") } icon: { Image(systemName: "photo").foregroundStyle(.white) }
-                    }
-                    Button { showFilePicker   = true } label: {
-                        Label { Text("Choose File") } icon: { Image(systemName: "folder.badge.plus").foregroundStyle(.white) }
-                    }
-                    Button { showLucidePicker = true } label: {
-                        Label { Text("Lucide Icons") } icon: { Image(systemName: "square.grid.3x3").foregroundStyle(.white) }
-                    }
+                    imageSourceMenuItems
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "photo.badge.plus")
