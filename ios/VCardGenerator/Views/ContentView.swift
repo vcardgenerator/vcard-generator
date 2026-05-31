@@ -30,12 +30,9 @@ struct BuilderTab: View {
 
     @State private var expandedIDs = Set<UUID>()
     @State private var showLoad    = false
-    @AppStorage("reduceMotion") private var reduceMotion = false
 
     private var motion: Animation {
-        reduceMotion
-            ? .easeInOut(duration: 0.15)
-            : .spring(response: 0.4, dampingFraction: 0.8)
+        .spring(response: 0.4, dampingFraction: 0.8)
     }
 
     var body: some View {
@@ -55,9 +52,7 @@ struct BuilderTab: View {
                                 index:       idx,
                                 isExpanded:  expandedIDs.contains(entry.id),
                                 onToggle: {
-                                    withAnimation(reduceMotion
-                                        ? .easeInOut(duration: 0.15)
-                                        : .spring(response: 0.35, dampingFraction: 0.85)) {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                                         toggleExpand(entry.id)
                                     }
                                 },

@@ -302,8 +302,17 @@ struct EntryRowView: View {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
-        guard let data = try? Data(contentsOf: url),
-              let raw  = UIImage(data: data) else { return }
+        // NSFileCoordinator materializes iCloud / file-provider items that a bare
+        // Data(contentsOf:) would fail to read.
+        var imageData: Data?
+        var coordError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: url, options: [.withoutChanges],
+                                       error: &coordError) { readURL in
+            imageData = try? Data(contentsOf: readURL)
+        }
+        if imageData == nil { imageData = try? Data(contentsOf: url) }   // fallback
+
+        guard let data = imageData, let raw = UIImage(data: data) else { return }
         let name = url.lastPathComponent
         withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
             entry.image     = VCardService.resizeImage(raw)

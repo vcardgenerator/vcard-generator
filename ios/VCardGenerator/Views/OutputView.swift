@@ -45,7 +45,7 @@ struct OutputView: View {
 
             // ── Disclaimer + Copy button ──────────────────────────────────────
             HStack(alignment: .center, spacing: 10) {
-                if !text.isEmpty {
+                if isTruncated {
                     Text("This isn\u{2019}t the full output shown due to lag, but when you copy it, it will be the full output.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)

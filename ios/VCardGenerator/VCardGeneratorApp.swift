@@ -4,8 +4,7 @@ import SwiftUI
 struct VCardGeneratorApp: App {
     init() {
         UserDefaults.standard.register(defaults: [
-            "hapticsEnabled": true,
-            "reduceMotion":   false
+            "hapticsEnabled": true
         ])
     }
 

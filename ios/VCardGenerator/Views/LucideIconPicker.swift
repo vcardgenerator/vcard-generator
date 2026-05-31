@@ -1,6 +1,21 @@
 import SwiftUI
 import WebKit
 
+// MARK: - Shared CDN base ──────────────────────────────────────────────────────
+// The grid resolves lucide-static's concrete version from unpkg's @latest
+// redirect and stores the pinned base here. Reusing it for the preview/render
+// fetches avoids paying that redirect again — which is exactly why the *first*
+// icon used to load blank while later ones were instant (redirect since cached).
+
+@MainActor
+final class LucideCDN {
+    static let shared = LucideCDN()
+    private init() {}
+
+    var iconsBase = "https://unpkg.com/lucide-static@latest/icons/"
+    func url(for name: String) -> URL? { URL(string: iconsBase + name + ".svg") }
+}
+
 // MARK: - Entry point sheet ───────────────────────────────────────────────────
 
 struct LucideIconPickerSheet: View {
@@ -14,27 +29,38 @@ struct LucideIconPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            LucideWebGrid(
-                searchText: searchText,
-                onSelect: { name in
-                    pendingIconName = name
-                    showColorPicker = true
-                },
-                onReady: {
-                    withAnimation(.easeOut(duration: 0.25)) { gridLoading = false }
+            VStack(spacing: 0) {
+                HStack {
+                    Text("lucide.dev/icons")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
                 }
-            )
-            .ignoresSafeArea(edges: .bottom)
-            .overlay {
-                if gridLoading {
-                    VStack(spacing: 12) {
-                        ProgressView().scaleEffect(1.2)
-                        Text("Loading icons…")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
+                LucideWebGrid(
+                    searchText: searchText,
+                    onSelect: { name in
+                        pendingIconName = name
+                        showColorPicker = true
+                    },
+                    onReady: {
+                        withAnimation(.easeOut(duration: 0.25)) { gridLoading = false }
+                    }
+                )
+                .overlay {
+                    if gridLoading {
+                        VStack(spacing: 12) {
+                            ProgressView().scaleEffect(1.2)
+                            Text("Loading icons…")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
+            .ignoresSafeArea(edges: .bottom)
             .searchable(text: $searchText,
                         placement: .navigationBarDrawer(displayMode: .always),
                         prompt: "Search Lucide icons")
@@ -85,6 +111,7 @@ struct LucideWebGrid: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "iconTapped")
         config.userContentController.add(context.coordinator, name: "gridReady")
+        config.userContentController.add(context.coordinator, name: "resolvedBase")
 
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.scrollView.backgroundColor = .clear
@@ -123,6 +150,10 @@ struct LucideWebGrid: UIViewRepresentable {
                 }
             case "gridReady":
                 DispatchQueue.main.async { self.onReady() }
+            case "resolvedBase":
+                if let base = message.body as? String, !base.isEmpty {
+                    Task { @MainActor in LucideCDN.shared.iconsBase = base }
+                }
             default:
                 break
             }
@@ -206,6 +237,7 @@ struct LucideWebGrid: UIViewRepresentable {
             names=Object.keys(tags).sort();
             if(m){ base="https://unpkg.com/lucide-static@"+m[1]+"/icons/"; }
           }catch(e){ /* keep fallback */ }
+          window.webkit.messageHandlers.resolvedBase.postMessage(base);
           build(names, base);
           window.webkit.messageHandlers.gridReady.postMessage("ready");
         }
@@ -352,7 +384,7 @@ struct LucideColorPickerSheet: View {
         guard !isRendering else { return }
         isRendering = true
 
-        guard let url = URL(string: "https://unpkg.com/lucide-static@latest/icons/\(iconName).svg"),
+        guard let url = LucideCDN.shared.url(for: iconName),
               let (data, _) = try? await URLSession.shared.data(from: url),
               let svgString  = String(data: data, encoding: .utf8)
         else { isRendering = false; return }
@@ -387,7 +419,7 @@ private struct LucideIconPreview: View {
             }
         }
         .task(id: iconName) {
-            guard let url = URL(string: "https://unpkg.com/lucide-static@latest/icons/\(iconName).svg"),
+            guard let url = LucideCDN.shared.url(for: iconName),
                   let (data, _) = try? await URLSession.shared.data(from: url),
                   let s = String(data: data, encoding: .utf8) else { return }
             withAnimation(.easeInOut(duration: 0.2)) { svg = s }
