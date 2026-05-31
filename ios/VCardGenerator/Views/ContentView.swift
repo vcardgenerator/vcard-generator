@@ -20,6 +20,11 @@ struct ContentView: View {
                 SettingsTab()
             }
         }
+        .task {
+            // Warm the icon renderer's web content process so the first
+            // Lucide preview doesn't come back blank.
+            LucideRenderer.shared.prewarm()
+        }
     }
 }
 

@@ -384,13 +384,9 @@ struct LucideColorPickerSheet: View {
         guard !isRendering else { return }
         isRendering = true
 
-        guard let url = LucideCDN.shared.url(for: iconName),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let svgString  = String(data: data, encoding: .utf8)
-        else { isRendering = false; return }
-
-        let hex = selectedColor.hexString
-        guard let image = await SVGRenderer.shared.render(svgString: svgString, colorHex: hex)
+        // Same renderer/cache the preview used, so this is usually instant.
+        guard let image = await LucideRenderer.shared.render(iconName: iconName,
+                                                             colorHex: selectedColor.hexString)
         else { isRendering = false; return }
 
         onConfirm(image)
@@ -398,159 +394,168 @@ struct LucideColorPickerSheet: View {
     }
 }
 
-// MARK: - Live icon preview (instant, colors update with no snapshot delay) ────
+// MARK: - Icon preview (renders to a UIImage via the shared renderer) ──────────
 
 private struct LucideIconPreview: View {
     let iconName: String
     let color:    Color
 
-    @State private var svg: String? = nil
+    @State private var image: UIImage? = nil
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 22)
                 .fill(Color(UIColor.secondarySystemBackground))
-            if let svg {
-                SVGLiveView(svg: svg, colorHex: color.hexString)
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
                     .padding(18)
                     .transition(.opacity)
             } else {
                 ProgressView()
             }
         }
-        .task(id: iconName) {
-            guard let url = LucideCDN.shared.url(for: iconName),
-                  let (data, _) = try? await URLSession.shared.data(from: url),
-                  let s = String(data: data, encoding: .utf8) else { return }
-            withAnimation(.easeInOut(duration: 0.2)) { svg = s }
-        }
-    }
-}
-
-// Inline-SVG WKWebView whose stroke follows CSS `color` (Lucide uses
-// stroke="currentColor"), so recoloring is an instant JS call — no snapshot.
-private struct SVGLiveView: UIViewRepresentable {
-    let svg:      String
-    let colorHex: String
-
-    func makeUIView(context: Context) -> WKWebView {
-        let wv = WKWebView()
-        wv.isOpaque = false
-        wv.backgroundColor = .clear
-        wv.scrollView.backgroundColor = .clear
-        wv.scrollView.isScrollEnabled = false
-        wv.isUserInteractionEnabled = false
-        context.coordinator.loadedColor = colorHex
-        wv.loadHTMLString(Self.html(svg: svg, colorHex: colorHex), baseURL: nil)
-        return wv
-    }
-
-    func updateUIView(_ wv: WKWebView, context: Context) {
-        guard context.coordinator.loadedColor != colorHex else { return }
-        context.coordinator.loadedColor = colorHex
-        wv.evaluateJavaScript("document.body.style.color='\(colorHex)';", completionHandler: nil)
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-    final class Coordinator { var loadedColor = "" }
-
-    private static func html(svg: String, colorHex: String) -> String {
-        """
-        <!DOCTYPE html><html><head>
-        <meta name="viewport" content="initial-scale=1,maximum-scale=1">
-        <style>
-        *{margin:0;padding:0;}
-        html,body{width:100%;height:100%;display:flex;align-items:center;
-                  justify-content:center;background:transparent;color:\(colorHex);}
-        svg{width:100%!important;height:100%!important;display:block;}
-        </style></head><body>\(svg)</body></html>
-        """
-    }
-}
-
-// MARK: - SVG → UIImage renderer (fixed offset) ───────────────────────────────
-
-@MainActor
-final class SVGRenderer {
-    static let shared = SVGRenderer()
-    private init() {}
-
-    func render(svgString: String, colorHex: String = "#111827", size: CGFloat = 120) async -> UIImage? {
-        let dim = Int(size)
-
-        var svg = svgString.replacingOccurrences(of: "currentColor", with: colorHex)
-        svg = stripSVGDimensions(svg)
-
-        let html = """
-        <!DOCTYPE html><html>
-        <head>
-        <meta name="viewport" content="width=\(dim),initial-scale=1,maximum-scale=1">
-        <style>
-        *{margin:0;padding:0;border:0;}
-        html,body{
-          width:\(dim)px;height:\(dim)px;
-          overflow:hidden;
-          background:transparent;
-          display:flex;align-items:center;justify-content:center;
-        }
-        svg{
-          width:\(dim - 16)px!important;
-          height:\(dim - 16)px!important;
-          display:block;
-          flex-shrink:0;
-        }
-        </style></head>
-        <body>\(svg)</body></html>
-        """
-
-        guard let window = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first?.windows.first else { return nil }
-
-        let frame = CGRect(x: -(CGFloat(dim) + 40), y: 0,
-                          width: CGFloat(dim), height: CGFloat(dim))
-        let wv = WKWebView(frame: frame)
-        wv.isOpaque = false
-        wv.backgroundColor = .clear
-        wv.scrollView.isScrollEnabled = false
-        wv.scrollView.contentInsetAdjustmentBehavior = .never
-        wv.scrollView.backgroundColor = .clear
-        window.addSubview(wv)
-
-        wv.loadHTMLString(html, baseURL: nil)
-        try? await Task.sleep(for: .milliseconds(550))
-
-        let snapConfig = WKSnapshotConfiguration()
-        snapConfig.rect = CGRect(origin: .zero,
-                                 size: CGSize(width: CGFloat(dim), height: CGFloat(dim)))
-        snapConfig.afterScreenUpdates = true
-
-        return await withCheckedContinuation { continuation in
-            wv.takeSnapshot(with: snapConfig) { image, _ in
-                wv.removeFromSuperview()
-                continuation.resume(returning: image)
+        // Re-render whenever the chosen color changes; the old image stays
+        // on screen until the new one is ready (no progress-flash on recolor).
+        .task(id: color.hexString) {
+            let img = await LucideRenderer.shared.render(iconName: iconName,
+                                                         colorHex: color.hexString)
+            if !Task.isCancelled, let img {
+                withAnimation(.easeInOut(duration: 0.2)) { image = img }
             }
         }
     }
+}
 
-    // Remove width="xx" and height="xx" from the first <svg ...> tag only
-    private func stripSVGDimensions(_ svg: String) -> String {
+// MARK: - SVG → UIImage renderer ───────────────────────────────────────────────
+//
+// One persistent, pre-warmed WKWebView, reused for every render. The old code
+// spun up a *fresh* web view per call; the very first one hadn't warmed its web
+// content process yet, so its snapshot came back blank ("first icon never loads,
+// the next is instant"). A single warm web view + a per-render ready token (so we
+// snapshot the actual new frame, not a stale one) makes the first render reliable.
+
+@MainActor
+final class LucideRenderer {
+    static let shared = LucideRenderer()
+
+    private let webView: WKWebView
+    private let dim: CGFloat = 120
+    private var cache: [String: UIImage] = [:]
+    private var tail: Task<Void, Never> = Task {}
+
+    private init() {
+        webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 120, height: 120))
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.isUserInteractionEnabled = false
+        webView.scrollView.isScrollEnabled = false
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.scrollView.backgroundColor = .clear
+    }
+
+    /// Spin up the web content process at launch so the first real render is warm.
+    func prewarm() {
+        attach()
+        webView.loadHTMLString("<!doctype html><html><body></body></html>", baseURL: nil)
+    }
+
+    private func attach() {
+        guard webView.superview == nil else { return }
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+        guard let window = windows.first(where: { $0.isKeyWindow }) ?? windows.first else { return }
+        webView.frame = CGRect(x: -(dim + 40), y: 0, width: dim, height: dim)   // offscreen
+        window.addSubview(webView)
+    }
+
+    func render(iconName: String, colorHex: String) async -> UIImage? {
+        let key = "\(iconName)|\(colorHex.lowercased())"
+        if let cached = cache[key] { return cached }
+
+        // Serialize — there is only one shared web view.
+        let previous = tail
+        let work = Task { @MainActor () -> UIImage? in
+            _ = await previous.value
+            return await self.doRender(key: key, iconName: iconName, colorHex: colorHex)
+        }
+        tail = Task { _ = await work.value }
+        return await work.value
+    }
+
+    private func doRender(key: String, iconName: String, colorHex: String) async -> UIImage? {
+        if let cached = cache[key] { return cached }
+        guard let url = LucideCDN.shared.url(for: iconName),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let rawSVG = String(data: data, encoding: .utf8) else { return nil }
+
+        attach()
+        let token = UUID().uuidString
+        webView.loadHTMLString(Self.html(svg: Self.colorized(rawSVG, colorHex: colorHex),
+                                         dim: Int(dim), token: token),
+                               baseURL: nil)
+        await waitForToken(token)
+
+        let cfg = WKSnapshotConfiguration()
+        cfg.rect = CGRect(x: 0, y: 0, width: dim, height: dim)
+        cfg.afterScreenUpdates = true
+        let image = await withCheckedContinuation { (cont: CheckedContinuation<UIImage?, Never>) in
+            webView.takeSnapshot(with: cfg) { img, _ in cont.resume(returning: img) }
+        }
+        if let image { cache[key] = image }
+        return image
+    }
+
+    /// Poll until the freshly loaded document reports our unique token, so we
+    /// never snapshot a stale or half-loaded page.
+    private func waitForToken(_ token: String, timeoutMs: Int = 2500) async {
+        let start = Date()
+        while Date().timeIntervalSince(start) * 1000 < Double(timeoutMs) {
+            let current = await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
+                webView.evaluateJavaScript("window.__t||''") { r, _ in
+                    cont.resume(returning: (r as? String) ?? "")
+                }
+            }
+            if current == token {
+                try? await Task.sleep(for: .milliseconds(80))   // let the frame paint
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    private static func colorized(_ svg: String, colorHex: String) -> String {
+        stripDimensions(svg.replacingOccurrences(of: "currentColor", with: colorHex))
+    }
+
+    private static func html(svg: String, dim: Int, token: String) -> String {
+        """
+        <!DOCTYPE html><html><head>
+        <meta name="viewport" content="width=\(dim),initial-scale=1,maximum-scale=1">
+        <style>
+        *{margin:0;padding:0;border:0;}
+        html,body{width:\(dim)px;height:\(dim)px;overflow:hidden;background:transparent;
+                  display:flex;align-items:center;justify-content:center;}
+        svg{width:\(dim - 16)px!important;height:\(dim - 16)px!important;display:block;flex-shrink:0;}
+        </style></head>
+        <body>\(svg)<script>window.__t="\(token)";</script></body></html>
+        """
+    }
+
+    private static func stripDimensions(_ svg: String) -> String {
         guard let svgRange = svg.range(of: "<svg", options: .caseInsensitive),
               let closeRange = svg.range(of: ">", range: svgRange.upperBound..<svg.endIndex)
         else { return svg }
 
         let tagContent = String(svg[svgRange.upperBound..<closeRange.lowerBound])
-
         var cleaned = tagContent
         let pattern = #"\s+(width|height)="[^"]*""#
         if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
             let range = NSRange(cleaned.startIndex..., in: cleaned)
             cleaned = regex.stringByReplacingMatches(in: cleaned, range: range, withTemplate: "")
         }
-
-        return svg.replacingCharacters(
-            in: svgRange.upperBound..<closeRange.lowerBound,
-            with: cleaned
-        )
+        return svg.replacingCharacters(in: svgRange.upperBound..<closeRange.lowerBound, with: cleaned)
     }
 }

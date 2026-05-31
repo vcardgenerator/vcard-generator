@@ -13,7 +13,6 @@ struct EntryRowView: View {
 
     @State private var pickerItem:      PhotosPickerItem? = nil
     @State private var showPhotoPicker  = false
-    @State private var showFilePicker   = false
     @State private var showLucidePicker = false
 
     var body: some View {
@@ -30,14 +29,11 @@ struct EntryRowView: View {
         .glassEffect(in: RoundedRectangle(cornerRadius: 16))
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
         // ── Image source pickers ──────────────────────────────────────────────
+        // NOTE: the file picker is presented imperatively (UIKit) rather than via
+        // .fileImporter — stacking .fileImporter between .photosPicker and .sheet
+        // on one List-row view makes SwiftUI silently drop its result.
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickerItem,
                       matching: .images, photoLibrary: .shared())
-        .fileImporter(
-            isPresented: $showFilePicker,
-            allowedContentTypes: Self.importableImageTypes
-        ) { result in
-            handleFileImport(result)
-        }
         .sheet(isPresented: $showLucidePicker) {
             LucideIconPickerSheet { image, name in
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
@@ -202,7 +198,7 @@ struct EntryRowView: View {
         Button { showPhotoPicker  = true } label: {
             Label { Text("Photo Library") } icon: { menuIcon("photo") }
         }
-        Button { showFilePicker   = true } label: {
+        Button { presentFilePicker() } label: {
             Label { Text("Choose File") }   icon: { menuIcon("folder.badge.plus") }
         }
         Button { showLucidePicker = true } label: {
@@ -294,30 +290,64 @@ struct EntryRowView: View {
         }
     }
 
-    // ── File import handler ───────────────────────────────────────────────────
-    private func handleFileImport(_ result: Result<URL, Error>) {
-        guard let url = try? result.get() else { return }
-        // Document-picker URLs are security-scoped; access may or may not be
-        // required, so don't bail if it returns false.
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-
-        // NSFileCoordinator materializes iCloud / file-provider items that a bare
-        // Data(contentsOf:) would fail to read.
-        var imageData: Data?
-        var coordError: NSError?
-        NSFileCoordinator().coordinate(readingItemAt: url, options: [.withoutChanges],
-                                       error: &coordError) { readURL in
-            imageData = try? Data(contentsOf: readURL)
+    // ── File picker (imperative UIKit presentation) ───────────────────────────
+    private func presentFilePicker() {
+        FileImagePicker.present(types: Self.importableImageTypes) { raw, name in
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                entry.image     = VCardService.resizeImage(raw)
+                entry.imageName = name
+            }
         }
-        if imageData == nil { imageData = try? Data(contentsOf: url) }   // fallback
+    }
+}
 
-        guard let data = imageData, let raw = UIImage(data: data) else { return }
-        let name = url.lastPathComponent
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-            entry.image     = VCardService.resizeImage(raw)
-            entry.imageName = name
+// MARK: - Imperative document picker for images
+//
+// Presented directly on the top view controller so it never collides with the
+// other SwiftUI presentation modifiers on the row. `asCopy: true` hands back a
+// sandbox-local copy, so reading it never hits iCloud-materialization or
+// security-scope problems.
+
+@MainActor
+enum FileImagePicker {
+    private final class Delegate: NSObject, UIDocumentPickerDelegate {
+        let onPick: (UIImage, String) -> Void
+        init(onPick: @escaping (UIImage, String) -> Void) { self.onPick = onPick }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController,
+                            didPickDocumentsAt urls: [URL]) {
+            defer { FileImagePicker.retained = nil }
+            guard let url = urls.first,
+                  let data = try? Data(contentsOf: url),
+                  let img  = UIImage(data: data) else { return }
+            onPick(img, url.lastPathComponent)
         }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            FileImagePicker.retained = nil
+        }
+    }
+
+    private static var retained: Delegate?      // keep the delegate alive while open
+
+    static func present(types: [UTType], onPick: @escaping (UIImage, String) -> Void) {
+        let delegate = Delegate(onPick: onPick)
+        retained = delegate
+
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
+        picker.delegate = delegate
+        picker.allowsMultipleSelection = false
+        topViewController()?.present(picker, animated: true)
+    }
+
+    private static func topViewController() -> UIViewController? {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+        let keyWindow = windows.first { $0.isKeyWindow } ?? windows.first
+        var top = keyWindow?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
     }
 }
 
