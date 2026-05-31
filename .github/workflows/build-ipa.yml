@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: macos-15
+    permissions:
+      contents: write          # needed to publish the IPA as a Release asset
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────────
@@ -62,13 +64,33 @@ jobs:
           cp -r "$APP_PATH" "$RUNNER_TEMP/Payload/"
 
           cd "$RUNNER_TEMP"
-          zip -r VCardGenerator-unsigned.ipa Payload/
-          echo "IPA size: $(du -sh VCardGenerator-unsigned.ipa | cut -f1)"
+          zip -r VCardGenerator.ipa Payload/
+          echo "IPA size: $(du -sh VCardGenerator.ipa | cut -f1)"
 
-      # ── 7. Upload artifact ────────────────────────────────────────────────────
+      # ── 7. Upload artifact (GitHub always wraps artifacts in a .zip) ──────────
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VCardGenerator-unsigned-${{ github.sha }}
-          path: ${{ runner.temp }}/VCardGenerator-unsigned.ipa
+          name: VCardGenerator
+          path: ${{ runner.temp }}/VCardGenerator.ipa
           retention-days: 30
+
+      # ── 8. Publish a rolling "latest" Release with the raw .ipa ───────────────
+      #     Release assets are a direct download (no surrounding .zip).
+      - name: Publish IPA to Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP"
+          NOTES="Unsigned IPA built from ${GITHUB_SHA:0:7} on $(date -u '+%Y-%m-%d %H:%M UTC')."
+          if gh release view latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload latest VCardGenerator.ipa \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit latest --repo "$GITHUB_REPOSITORY" --notes "$NOTES"
+          else
+            gh release create latest VCardGenerator.ipa \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Latest Build" \
+              --notes "$NOTES"
+          fi

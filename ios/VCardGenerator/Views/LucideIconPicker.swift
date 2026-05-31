@@ -5,7 +5,7 @@ import WebKit
 
 struct LucideIconPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let onSelect: (UIImage) -> Void
+    let onSelect: (UIImage, String) -> Void
 
     @State private var pendingIconName: String? = nil   // set when user taps an icon
     @State private var showColorPicker = false
@@ -49,7 +49,7 @@ struct LucideIconPickerSheet: View {
         .sheet(isPresented: $showColorPicker) {
             if let name = pendingIconName {
                 LucideColorPickerSheet(iconName: name) { image in
-                    onSelect(image)
+                    onSelect(image, name)
                     dismiss()
                 }
             }
@@ -366,46 +366,73 @@ struct LucideColorPickerSheet: View {
     }
 }
 
-// MARK: - Live icon preview (renders the actual icon in the chosen color) ──────
+// MARK: - Live icon preview (instant, colors update with no snapshot delay) ────
 
 private struct LucideIconPreview: View {
     let iconName: String
     let color:    Color
 
-    @State private var image:    UIImage? = nil
-    @State private var svgCache: String?  = nil   // fetched once, reused on color change
+    @State private var svg: String? = nil
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 22)
                 .fill(Color(UIColor.secondarySystemBackground))
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .padding(20)
+            if let svg {
+                SVGLiveView(svg: svg, colorHex: color.hexString)
+                    .padding(18)
                     .transition(.opacity)
             } else {
                 ProgressView()
             }
         }
-        .task(id: color.hexString) {
-            await rerender()
-        }
-    }
-
-    private func rerender() async {
-        // Fetch the raw SVG only the first time
-        if svgCache == nil {
+        .task(id: iconName) {
             guard let url = URL(string: "https://unpkg.com/lucide-static@latest/icons/\(iconName).svg"),
                   let (data, _) = try? await URLSession.shared.data(from: url),
-                  let svg = String(data: data, encoding: .utf8) else { return }
-            svgCache = svg
+                  let s = String(data: data, encoding: .utf8) else { return }
+            withAnimation(.easeInOut(duration: 0.2)) { svg = s }
         }
-        guard let svg = svgCache else { return }
-        let rendered = await SVGRenderer.shared.render(svgString: svg, colorHex: color.hexString)
-        if Task.isCancelled { return }
-        withAnimation(.easeInOut(duration: 0.2)) { image = rendered }
+    }
+}
+
+// Inline-SVG WKWebView whose stroke follows CSS `color` (Lucide uses
+// stroke="currentColor"), so recoloring is an instant JS call — no snapshot.
+private struct SVGLiveView: UIViewRepresentable {
+    let svg:      String
+    let colorHex: String
+
+    func makeUIView(context: Context) -> WKWebView {
+        let wv = WKWebView()
+        wv.isOpaque = false
+        wv.backgroundColor = .clear
+        wv.scrollView.backgroundColor = .clear
+        wv.scrollView.isScrollEnabled = false
+        wv.isUserInteractionEnabled = false
+        context.coordinator.loadedColor = colorHex
+        wv.loadHTMLString(Self.html(svg: svg, colorHex: colorHex), baseURL: nil)
+        return wv
+    }
+
+    func updateUIView(_ wv: WKWebView, context: Context) {
+        guard context.coordinator.loadedColor != colorHex else { return }
+        context.coordinator.loadedColor = colorHex
+        wv.evaluateJavaScript("document.body.style.color='\(colorHex)';", completionHandler: nil)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    final class Coordinator { var loadedColor = "" }
+
+    private static func html(svg: String, colorHex: String) -> String {
+        """
+        <!DOCTYPE html><html><head>
+        <meta name="viewport" content="initial-scale=1,maximum-scale=1">
+        <style>
+        *{margin:0;padding:0;}
+        html,body{width:100%;height:100%;display:flex;align-items:center;
+                  justify-content:center;background:transparent;color:\(colorHex);}
+        svg{width:100%!important;height:100%!important;display:block;}
+        </style></head><body>\(svg)</body></html>
+        """
     }
 }
 

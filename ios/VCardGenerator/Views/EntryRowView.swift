@@ -1,5 +1,7 @@
 import SwiftUI
 import PhotosUI
+import Photos
+import UniformTypeIdentifiers
 
 struct EntryRowView: View {
     @Bindable var entry:     VCardEntry
@@ -28,17 +30,19 @@ struct EntryRowView: View {
         .glassEffect(in: RoundedRectangle(cornerRadius: 16))
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
         // ── Image source pickers ──────────────────────────────────────────────
-        .photosPicker(isPresented: $showPhotoPicker, selection: $pickerItem, matching: .images)
+        .photosPicker(isPresented: $showPhotoPicker, selection: $pickerItem,
+                      matching: .images, photoLibrary: .shared())
         .fileImporter(
             isPresented: $showFilePicker,
-            allowedContentTypes: [.image]
+            allowedContentTypes: Self.importableImageTypes
         ) { result in
             handleFileImport(result)
         }
         .sheet(isPresented: $showLucidePicker) {
-            LucideIconPickerSheet { image in
+            LucideIconPickerSheet { image, name in
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                    entry.image = VCardService.resizeImage(image)
+                    entry.image     = VCardService.resizeImage(image)
+                    entry.imageName = name
                 }
             }
         }
@@ -48,12 +52,33 @@ struct EntryRowView: View {
                       let data = try? await item.loadTransferable(type: Data.self),
                       let raw  = UIImage(data: data)
                 else { return }
+                let name = Self.photoFilename(for: item)
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                    entry.image = VCardService.resizeImage(raw)
+                    entry.image     = VCardService.resizeImage(raw)
+                    entry.imageName = name
                 }
                 pickerItem = nil
             }
         }
+    }
+
+    // Raster image formats UIImage can actually decode (excludes SVG/PDF, which
+    // appear selectable under the generic `.image` type but won't load).
+    private static let importableImageTypes: [UTType] = {
+        var types: [UTType] = [.png, .jpeg, .heic, .heif, .gif, .tiff, .bmp]
+        if let webp = UTType("org.webmproject.webp") { types.append(webp) }
+        return types
+    }()
+
+    // Best-effort original filename (e.g. IMG_0001.HEIC). Only resolves when the
+    // user has already granted Photos access; otherwise falls back to "Photo".
+    private static func photoFilename(for item: PhotosPickerItem) -> String {
+        guard let id = item.itemIdentifier else { return "Photo" }
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard status == .authorized || status == .limited else { return "Photo" }
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil)
+        guard let asset = assets.firstObject else { return "Photo" }
+        return PHAssetResource.assetResources(for: asset).first?.originalFilename ?? "Photo"
     }
 
     // ── Header row ────────────────────────────────────────────────────────────
@@ -199,8 +224,10 @@ struct EntryRowView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Image loaded")
+                        Text(entry.imageName ?? "Image loaded")
                             .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                         Text("\(Int(img.size.width)) × \(Int(img.size.height)) px")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -225,7 +252,8 @@ struct EntryRowView: View {
 
                         Button {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                entry.image = nil
+                                entry.image     = nil
+                                entry.imageName = nil
                             }
                         } label: {
                             Text("Remove")
@@ -268,13 +296,18 @@ struct EntryRowView: View {
 
     // ── File import handler ───────────────────────────────────────────────────
     private func handleFileImport(_ result: Result<URL, Error>) {
-        guard let url = try? result.get(),
-              url.startAccessingSecurityScopedResource() else { return }
-        defer { url.stopAccessingSecurityScopedResource() }
+        guard let url = try? result.get() else { return }
+        // Document-picker URLs are security-scoped; access may or may not be
+        // required, so don't bail if it returns false.
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
         guard let data = try? Data(contentsOf: url),
               let raw  = UIImage(data: data) else { return }
+        let name = url.lastPathComponent
         withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-            entry.image = VCardService.resizeImage(raw)
+            entry.image     = VCardService.resizeImage(raw)
+            entry.imageName = name
         }
     }
 }

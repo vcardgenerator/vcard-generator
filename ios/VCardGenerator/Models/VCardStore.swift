@@ -30,9 +30,10 @@ final class VCardStore {
 
     func duplicateEntry(_ entry: VCardEntry) -> VCardEntry {
         let copy = VCardEntry(
-            title:    entry.title + " Copy",
-            subtitle: entry.subtitle,
-            image:    entry.image
+            title:     entry.title + " Copy",
+            subtitle:  entry.subtitle,
+            image:     entry.image,
+            imageName: entry.imageName
         )
         if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
             entries.insert(copy, at: idx + 1)

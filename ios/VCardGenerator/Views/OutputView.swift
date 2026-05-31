@@ -33,12 +33,25 @@ struct OutputView: View {
 
     @State private var copied = false
 
+    // Cap the on-screen preview so very large output (base64 images) doesn't lag.
+    private let previewLimit = 6000
+    private var isTruncated: Bool { text.count > previewLimit }
+    private var previewText: String {
+        isTruncated ? String(text.prefix(previewLimit)) + "\n\n…" : text
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
 
-            // ── Copy button ───────────────────────────────────────────────────
-            HStack {
-                Spacer()
+            // ── Disclaimer + Copy button ──────────────────────────────────────
+            HStack(alignment: .center, spacing: 10) {
+                if !text.isEmpty {
+                    Text("This isn\u{2019}t the full output shown due to lag, but when you copy it, it will be the full output.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
                 GlassEffectContainer {
                     Button {
                         onCopy()
@@ -73,7 +86,7 @@ struct OutputView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(14)
                     } else {
-                        MonoTextView(text: text)
+                        MonoTextView(text: previewText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
