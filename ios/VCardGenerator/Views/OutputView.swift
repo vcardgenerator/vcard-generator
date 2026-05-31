@@ -1,4 +1,31 @@
 import SwiftUI
+import UIKit
+
+// MARK: - UITextView wrapper (handles large strings without crashing)
+
+private struct MonoTextView: UIViewRepresentable {
+    let text: String
+
+    func makeUIView(context: Context) -> UITextView {
+        let tv = UITextView()
+        tv.isEditable = false
+        tv.isSelectable = true
+        tv.backgroundColor = .clear
+        tv.textContainerInset = UIEdgeInsets(top: 14, left: 10, bottom: 14, right: 10)
+        tv.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        tv.textColor = .label
+        tv.isScrollEnabled = false          // outer ScrollView handles scrolling
+        tv.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return tv
+    }
+
+    func updateUIView(_ tv: UITextView, context: Context) {
+        guard tv.text != text else { return }
+        tv.text = text
+    }
+}
+
+// MARK: - Output View
 
 struct OutputView: View {
     let text:   String
@@ -38,13 +65,19 @@ struct OutputView: View {
 
             // ── Scrollable VCF text ───────────────────────────────────────────
             ScrollView {
-                Text(text.isEmpty ? "Add buttons to see output…" : text)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(text.isEmpty ? .secondary : .primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .textSelection(.enabled)
-                    .animation(.easeInOut(duration: 0.2), value: text.isEmpty)
+                Group {
+                    if text.isEmpty {
+                        Text("Add buttons to see output…")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                    } else {
+                        MonoTextView(text: text)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: text.isEmpty)
             }
             .frame(maxHeight: 280)
             .glassEffect(in: RoundedRectangle(cornerRadius: 12))

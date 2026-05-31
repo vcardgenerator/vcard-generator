@@ -189,13 +189,13 @@ struct EntryRowView: View {
                         // ── Change (dropdown) ──────────────────────────────
                         Menu {
                             Button { showPhotoPicker  = true } label: {
-                                Label("Photo Library", systemImage: "photo")
+                                Label { Text("Photo Library") } icon: { Image(systemName: "photo").foregroundStyle(.white) }
                             }
                             Button { showFilePicker   = true } label: {
-                                Label("Choose File",   systemImage: "folder.badge.plus")
+                                Label { Text("Choose File") } icon: { Image(systemName: "folder.badge.plus").foregroundStyle(.white) }
                             }
                             Button { showLucidePicker = true } label: {
-                                Label("Lucide Icons",  systemImage: "square.grid.3x3")
+                                Label { Text("Lucide Icons") } icon: { Image(systemName: "square.grid.3x3").foregroundStyle(.white) }
                             }
                         } label: {
                             Text("Change")
@@ -230,13 +230,13 @@ struct EntryRowView: View {
             GlassEffectContainer {
                 Menu {
                     Button { showPhotoPicker  = true } label: {
-                        Label("Photo Library", systemImage: "photo")
+                        Label { Text("Photo Library") } icon: { Image(systemName: "photo").foregroundStyle(.white) }
                     }
                     Button { showFilePicker   = true } label: {
-                        Label("Choose File",   systemImage: "folder.badge.plus")
+                        Label { Text("Choose File") } icon: { Image(systemName: "folder.badge.plus").foregroundStyle(.white) }
                     }
                     Button { showLucidePicker = true } label: {
-                        Label("Lucide Icons",  systemImage: "square.grid.3x3")
+                        Label { Text("Lucide Icons") } icon: { Image(systemName: "square.grid.3x3").foregroundStyle(.white) }
                     }
                 } label: {
                     HStack(spacing: 10) {
